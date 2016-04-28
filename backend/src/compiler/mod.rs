@@ -2,6 +2,9 @@
 
 mod visitor;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug)]
 pub enum TokenType {
     Symbol,
