@@ -3,8 +3,8 @@
 mod compiler;
 
 
-use compiler::AbstractTree::*;
-use compiler::TokenType::*;
+use compiler::abstract_tree::AbstractTree::*;
+use compiler::abstract_tree::TokenType::*;
 
 fn main() {
     let at = Node(vec![
