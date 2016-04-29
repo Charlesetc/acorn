@@ -69,9 +69,28 @@ impl<'a> AbstractTree<'a> {
 #[cfg(test)]
 mod tests {
 
-    #[test]
-    fn test_test() {
+    use super::AbstractTree;
+    use super::AbstractTree::*;
+    use super::TokenType::*;
 
+    fn generate_data<'a>() -> AbstractTree<'a> {
+        return Node(vec![
+                Node(vec![Token(Symbol, "foo"), Token(Int, "2"), Token(Int, "2"), Node(vec![
+                                                                                       Token(Symbol, "foo"),
+                                                                                       Token(Symbol, "foo"),
+                ])]),
+                Node(vec![Token(Symbol, "define"), Token(Int, "a"), Token(Int, "2")]),
+        ]);
+    }
+
+    static mut foo_visitor_count: i64 = 0;
+    fn foo_visitor(at: &mut AbstractTree) { unsafe { foo_visitor_count += 1; } }
+
+    #[test]
+    fn test_match_symbol() {
+        let mut data = generate_data();
+        data.match_symbol("foo", foo_visitor);
+        assert_eq!(unsafe { foo_visitor_count }, 2)
     }
 
 }
