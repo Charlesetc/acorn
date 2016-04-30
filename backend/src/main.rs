@@ -1,6 +1,7 @@
 // main.rs
 
 mod compiler;
+mod utils;
 
 
 use compiler::abstract_tree::AbstractTree::*;

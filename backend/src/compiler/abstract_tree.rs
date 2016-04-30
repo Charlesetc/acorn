@@ -1,4 +1,3 @@
-
 // compiler/abstract_tree.rs
 
 #[derive(Debug)]
@@ -75,22 +74,34 @@ mod tests {
 
     fn generate_data<'a>() -> AbstractTree<'a> {
         return Node(vec![
-                Node(vec![Token(Symbol, "foo"), Token(Int, "2"), Token(Int, "2"), Node(vec![
-                                                                                       Token(Symbol, "foo"),
-                                                                                       Token(Symbol, "foo"),
-                ])]),
-                Node(vec![Token(Symbol, "define"), Token(Int, "a"), Token(Int, "2")]),
+            Node(vec![
+                 Token(Symbol, "foo"),
+                 Token(Int, "2"),
+                 Token(Int, "2"),
+                 Node(vec![
+                        Token(Symbol, "foo"),
+                        Token(Symbol, "foo"),
+                ]),
+            ]),
+            Node(vec![
+                 Token(Symbol, "define"),
+                 Token(Int, "a"),
+                 Token(Int, "2")
+            ]),
         ]);
     }
 
     static mut foo_visitor_count: i64 = 0;
     fn foo_visitor(at: &mut AbstractTree) { unsafe { foo_visitor_count += 1; } }
-
     #[test]
     fn test_match_symbol() {
         let mut data = generate_data();
         data.match_symbol("foo", foo_visitor);
-        assert_eq!(unsafe { foo_visitor_count }, 2)
+        assert_eq!(unsafe { foo_visitor_count }, 2);
+        unsafe { foo_visitor_count = 0 };
+
+        data.visit_before(foo_visitor);
+        assert_eq!(unsafe { foo_visitor_count }, 11);
     }
 
 }
