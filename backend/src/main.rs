@@ -19,7 +19,11 @@ fn main() {
                 Node(vec![
                      Token(Symbol, "define", Position(0, 2)),
                      Token(Int, "a", Position(0, 2)),
-                     Token(Int, "2", Position(0, 2))
+                     Node(vec![
+                          Token(Symbol, "block", Position(0, 2)),
+                          Node(vec![Token(Int, "a", Position(0, 2))], Position(0, 2)),
+                          Node(vec![Token(Int, "2", Position(0, 2))], Position(0, 2)),
+                     ], Position(0, 2)),
                 ], Position(0, 2)),
             ], Position(0, 2));
     compiler::compile(at).unpack_error()
