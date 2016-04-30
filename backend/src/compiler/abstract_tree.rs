@@ -1,7 +1,10 @@
 // compiler/abstract_tree.rs
 
-use utils::Result;
-use utils::Error;
+use utils::{
+    Result,
+    Error,
+    Position
+};
 use self::AbstractTree::*;
 
 #[derive(Debug)]
@@ -14,8 +17,12 @@ pub enum TokenType {
 
 #[derive(Debug)]
 pub enum AbstractTree<'a> {
-    Node(Vec<AbstractTree<'a>>),
-    Token(TokenType, &'a str),
+    Node(Vec<AbstractTree<'a>>, Position),
+    Token (
+        TokenType,
+        &'a str,
+        Position
+    ),
 }
 
 impl<'a> AbstractTree<'a> {
@@ -33,9 +40,9 @@ impl<'a> AbstractTree<'a> {
 
     pub fn match_symbol(&mut self, s: &'a str, f: fn (&mut AbstractTree) -> Result<()>) -> Result<()> {
         let start = match self {
-            &mut Node(ref ats) => {
+            &mut Node(ref ats, _) => {
                 match ats.get(0) {
-                    Some(&Token(TokenType::Symbol, a)) => {
+                    Some(&Token(TokenType::Symbol, a, _)) => {
                         if s == a {
                             // this is so I can destructure immutably
                             // and then call f on the mutable self object
@@ -51,7 +58,7 @@ impl<'a> AbstractTree<'a> {
         }.or_else(|_| f(self) );
 
         match self {
-            &mut Node(ref mut ats) => {
+            &mut Node(ref mut ats, _) => {
                 ats.iter_mut().fold(start, |results, x| {
                     results.and_then(|_| x.match_symbol(s, f))
                 })
@@ -65,7 +72,7 @@ impl<'a> AbstractTree<'a> {
 
     pub fn check_length(&self, i: usize) -> Result<()> {
         match self {
-            &Node(ref ats) => {
+            &Node(ref ats, _) => {
                 if ats.len() == i {
                     Ok(())
                 } else {
@@ -81,9 +88,9 @@ impl<'a> AbstractTree<'a> {
 
     pub fn name(&self) -> &str {
         match self {
-            &Node(ref ats) => {
+            &Node(ref ats, _) => {
                 match ats.get(0) {
-                    Some(&Token(TokenType::Symbol, a)) => {
+                    Some(&Token(TokenType::Symbol, a, _)) => {
                         a
                     }
                     _ => { "unknown" }
@@ -93,8 +100,19 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
+    fn position(&self) -> Position {
+        match self {
+            &Node(_, ref position) => {
+                position.clone()
+            }
+            &Token(_, _, ref position) => {
+                position.clone()
+            }
+        }
+    }
+
     fn err(&self, description: String) -> Result<()> {
-        Err(Error { description: description })
+        Err(Error { description: description, position: self.position() })
     }
 }
 
@@ -109,20 +127,19 @@ mod tests {
     fn generate_data<'a>() -> AbstractTree<'a> {
         return Node(vec![
             Node(vec![
-                 Token(Symbol, "foo"),
-                 Token(Int, "2"),
-                 Token(Int, "2"),
+                 Token(Symbol, "foo", Position(0,0)),
+                 Token(Int, "2", Position(0,0)),
+                 Token(Int, "2", Position(0,0)),
                  Node(vec![
-                        Token(Symbol, "foo"),
-                        Token(Symbol, "foo"),
-                ]),
-            ]),
+                        Token(Symbol, "foo", Position(0,0)),
+                        Token(Symbol, "foo", Position(0,0)),
+                ], Position(0, 2)),
+            ], Position(0, 2)),
             Node(vec![
-                 Token(Symbol, "define"),
-                 Token(Int, "a"),
-                 Token(Int, "2")
-            ]),
-        ]);
+                 Token(Symbol, "define", Position(0,0)),
+                 Token(Int, "2", Position(0,0))
+            ], Position(0, 2)),
+        ], Position(0, 2));
     }
 
     static mut foo_visitor_count: i64 = 0;
