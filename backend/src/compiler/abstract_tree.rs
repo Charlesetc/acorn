@@ -31,7 +31,7 @@ impl<'a> AbstractTree<'a> {
     //     }
     // }
 
-    pub fn match_symbol(&mut self, s: &'a str, f: fn (&mut AbstractTree) -> Result) -> Result {
+    pub fn match_symbol(&mut self, s: &'a str, f: fn (&mut AbstractTree) -> Result<()>) -> Result<()> {
         let start = match self {
             &mut Node(ref ats) => {
                 match ats.get(0) {
@@ -52,7 +52,7 @@ impl<'a> AbstractTree<'a> {
 
         match self {
             &mut Node(ref mut ats) => {
-                ats.iter_mut().fold(start, |results, mut x| {
+                ats.iter_mut().fold(start, |results, x| {
                     results.and_then(|_| x.match_symbol(s, f))
                 })
             }
@@ -63,7 +63,7 @@ impl<'a> AbstractTree<'a> {
 
     // Functions for validating ast
 
-    pub fn check_length(&self, i: usize) -> Result {
+    pub fn check_length(&self, i: usize) -> Result<()> {
         match self {
             &Node(ref ats) => {
                 if ats.len() == i {
@@ -93,7 +93,7 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
-    fn err(&self, description: String) -> Result {
+    fn err(&self, description: String) -> Result<()> {
         Err(Error { description: description })
     }
 }
@@ -126,7 +126,7 @@ mod tests {
     }
 
     static mut foo_visitor_count: i64 = 0;
-    fn visitor_match_symbol(at: &mut AbstractTree) -> Result { unsafe { foo_visitor_count += 1; }; Ok(()) }
+    fn visitor_match_symbol(at: &mut AbstractTree) -> Result<()> { unsafe { foo_visitor_count += 1; }; Ok(()) }
 
     #[test]
     fn test_match_symbol() {
@@ -136,10 +136,10 @@ mod tests {
         unsafe { foo_visitor_count = 0 };
     }
 
-    fn visitor_check_length_3(at: &mut AbstractTree) -> Result {
+    fn visitor_check_length_3(at: &mut AbstractTree) -> Result<()> {
         at.check_length(3)
     }
-    fn visitor_check_length_1(at: &mut AbstractTree) -> Result {
+    fn visitor_check_length_1(at: &mut AbstractTree) -> Result<()> {
         at.check_length(1)
     }
 
