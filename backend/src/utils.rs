@@ -2,4 +2,7 @@
 
 use std::result;
 
-pub type Result<'a, T> = result::Result<T, &'a str>;
+// position: Position,
+pub struct Error { pub description: String }
+
+pub type Result = result::Result<(), Error>;

@@ -1,5 +1,9 @@
 // compiler/abstract_tree.rs
 
+use utils::Result;
+use utils::Error;
+use self::AbstractTree::*;
+
 #[derive(Debug)]
 pub enum TokenType {
     Symbol,
@@ -15,53 +19,82 @@ pub enum AbstractTree<'a> {
 }
 
 impl<'a> AbstractTree<'a> {
-    pub fn visit_before(&mut self, f: fn(&mut AbstractTree)) {
-        match self {
-            &mut AbstractTree::Node(ref mut ats) => {
-                ats.iter_mut().map(|mut x| {
-                    x.visit_before(f);
-                    f(x);
-                }).collect::<Vec<_>>();
-            }
-            _ => { }
-        }
-    }
+    // pub fn visit_before(&mut self, f: fn(&mut AbstractTree)) {
+    //     match self {
+    //         &mut Node(ref mut ats) => {
+    //             ats.iter_mut().map(|mut x| {
+    //                 x.visit_before(f);
+    //                 f(x);
+    //             }).collect::<Vec<_>>();
+    //         }
+    //         _ => { }
+    //     }
+    // }
 
-    pub fn visit_after(&mut self, f: fn(&mut AbstractTree)) {
-        match self {
-            &mut AbstractTree::Node(ref mut ats) => {
-                ats.iter_mut().map(|mut x| {
-                    f(x);
-                    x.visit_after(f);
-                }).collect::<Vec<_>>();
-            }
-            _ => { }
-        }
-    }
-
-    pub fn match_symbol(&mut self, s: &'a str, f: fn (&mut AbstractTree)) {
-        let matched = match self {
-            &mut AbstractTree::Node(ref mut ats) => {
-                match ats.get_mut(0) {
-                    Some(&mut AbstractTree::Token(TokenType::Symbol, a)) => s == a,
-                    _ => false,
+    pub fn match_symbol(&mut self, s: &'a str, f: fn (&mut AbstractTree) -> Result) -> Result {
+        let start = match self {
+            &mut Node(ref ats) => {
+                match ats.get(0) {
+                    Some(&Token(TokenType::Symbol, a)) => {
+                        if s == a {
+                            // this is so I can destructure immutably
+                            // and then call f on the mutable self object
+                            self.err("this is a goto to f(self)".to_string())
+                        } else {
+                            Ok(())
+                        }
+                    },
+                    _ => Ok(()),
                 }
             },
-            _ => false,
-        };
-
-        if matched {
-            f(self);
-        }
+            _ => Ok(()),
+        }.or_else(|_| f(self) );
 
         match self {
-            &mut AbstractTree::Node(ref mut ats) => {
-                ats.iter_mut().map(|mut x| {
-                    x.match_symbol(s, f);
-                }).collect::<Vec<_>>();
+            &mut Node(ref mut ats) => {
+                ats.iter_mut().fold(start, |results, mut x| {
+                    results.and_then(|_| x.match_symbol(s, f))
+                })
             }
-            _ => { return }
+            _ => { start }
         }
+    }
+
+
+    // Functions for validating ast
+
+    pub fn check_length(&self, i: usize) -> Result {
+        match self {
+            &Node(ref ats) => {
+                if ats.len() == i {
+                    Ok(())
+                } else {
+                    self.err(format!("{} takes {} arguments", self.name(), i-1))
+                }
+            }
+            _ => { panic!(format!{"check_length called on not a node: {:?}", self}) }
+        }
+    }
+
+
+    // Functions for reading the ast
+
+    pub fn name(&self) -> &str {
+        match self {
+            &Node(ref ats) => {
+                match ats.get(0) {
+                    Some(&Token(TokenType::Symbol, a)) => {
+                        a
+                    }
+                    _ => { "unknown" }
+                }
+            }
+            _ => { "token" }
+        }
+    }
+
+    fn err(&self, description: String) -> Result {
+        Err(Error { description: description })
     }
 }
 
@@ -71,6 +104,7 @@ mod tests {
     use super::AbstractTree;
     use super::AbstractTree::*;
     use super::TokenType::*;
+    use utils::Result;
 
     fn generate_data<'a>() -> AbstractTree<'a> {
         return Node(vec![
@@ -92,16 +126,29 @@ mod tests {
     }
 
     static mut foo_visitor_count: i64 = 0;
-    fn foo_visitor(at: &mut AbstractTree) { unsafe { foo_visitor_count += 1; } }
+    fn visitor_match_symbol(at: &mut AbstractTree) -> Result { unsafe { foo_visitor_count += 1; }; Ok(()) }
+
     #[test]
     fn test_match_symbol() {
         let mut data = generate_data();
-        data.match_symbol("foo", foo_visitor);
+        data.match_symbol("foo", visitor_match_symbol);
         assert_eq!(unsafe { foo_visitor_count }, 2);
         unsafe { foo_visitor_count = 0 };
+    }
 
-        data.visit_before(foo_visitor);
-        assert_eq!(unsafe { foo_visitor_count }, 11);
+    fn visitor_check_length_3(at: &mut AbstractTree) -> Result {
+        at.check_length(3)
+    }
+    fn visitor_check_length_1(at: &mut AbstractTree) -> Result {
+        at.check_length(1)
+    }
+
+    #[test]
+    fn test_check_length() {
+        let mut data = generate_data();
+        assert!(data.match_symbol("define", visitor_check_length_3).is_ok());
+        assert!(data.match_symbol("define", visitor_check_length_1).is_err());
+
     }
 
 }

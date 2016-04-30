@@ -2,14 +2,15 @@
 
 pub mod abstract_tree;
 
+use self::abstract_tree::{
+    AbstractTree,
+};
+use utils::Result;
 
-use self::abstract_tree::AbstractTree;
-
-fn check_define(at: &mut AbstractTree) {
-    println!("check define {:?}\n", at);
+fn check_define(at: &mut AbstractTree) -> Result {
+    at.check_length(2)
 }
 
 pub fn compile<'a>(mut at: AbstractTree<'a>) {
-    at.visit_after(check_define);
     at.match_symbol("define", check_define);
 }
