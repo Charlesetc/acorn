@@ -1,5 +1,7 @@
 // compiler/abstract_tree.rs
 
+use std::collections::HashMap;
+
 use utils::{Result, Error, Position};
 use self::AbstractTree::*;
 
@@ -18,6 +20,47 @@ pub enum TokenType {
     Str,
     Int,
     Float,
+}
+
+pub type IR = Vec<String>;
+
+pub struct QBEBuilder<'a> {
+    abstract_tree: Option<AbstractTree<'a>>,
+    transformations: HashMap<&'a str, Box<Fn(&mut AbstractTree) -> Result<IR>>>,
+}
+
+pub mod QBE {
+    use super::{QBEBuilder, AbstractTree};
+    use std::collections::HashMap;
+    pub fn new<'a>(a: AbstractTree<'a>) -> QBEBuilder<'a> {
+        QBEBuilder { abstract_tree: Some(a), transformations: HashMap::new() }
+    }
+}
+
+impl<'a> QBEBuilder<'a> {
+    pub fn handle(mut self, key: &'a str, f: Box<Fn(&mut AbstractTree) -> Result<IR>>) -> QBEBuilder<'a> {
+        self.transformations.insert(key, f);
+        self
+    }
+
+    pub fn compile(&mut self) -> Result<IR> {
+        let mut abstract_tree = self.abstract_tree.take().unwrap();
+        self.compile_inner(&mut abstract_tree)
+    }
+
+    pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
+        match self.transformations.get(tree.name()) {
+            Some(function) => { function(tree) }
+            None => {
+
+                // perform function call
+                unimplemented![]
+                // ats.iter_mut().fold(Ok(vec![]), |acc, at| {
+                //     acc.and_then(|ir| self.compile_inner(at))
+                // })
+            }
+        }
+    }
 }
 
 /// The AbstractTree is what is given to the `compile`
@@ -42,10 +85,22 @@ impl<'a> AbstractTree<'a> {
     /// assert_only_top_level() will return a Result::Err if
     /// a call occurs somewhere that's not the top level.
     pub fn assert_only_top_level(&mut self, s: &'a str) -> Result<()> {
+        // Go two nodes deep and assert there are no more after that.
         match self {
             &mut Node(ref mut ats, _) => {
-                ats.iter_mut().fold(Ok(()), |acc, a| {
-                    acc.and_then(|_| a.match_symbol(s, AbstractTree::fail_for_top_leval_call))
+                ats.iter_mut().fold(Ok(()), |acc, at| {
+                    acc.and_then(|_| {
+                        match at {
+                            &mut Node(ref mut ats, _) => {
+                                ats.iter_mut().fold(Ok(()), |acc, a| {
+                                    acc.and_then(|_| {
+                                        a.match_symbol(s, AbstractTree::fail_for_top_leval_call)
+                                    })
+                                })
+                            }
+                            _ => Ok(()),
+                        }
+                    })
                 })
             }
             _ => Ok(()),

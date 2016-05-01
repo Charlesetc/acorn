@@ -91,7 +91,7 @@ pub mod tests {
         Node(vec![Node(at, Position(0, 0))], Position(0, 0))
     }
 
-    pub fn assert_returns_error(result: Result<()>, description: &str) {
+    pub fn assert_returns_error<T>(result: Result<T>, description: &str) {
         assert_eq!(result.err().unwrap().description, description)
     }
 

@@ -2,7 +2,7 @@
 
 pub mod abstract_tree;
 
-use self::abstract_tree::AbstractTree;
+use self::abstract_tree::{AbstractTree, IR, QBE};
 use utils::Result;
 
 /// check_define ensures the tree passed to it is valid
@@ -12,14 +12,21 @@ fn check_define(at: &mut AbstractTree) -> Result<()> {
     Ok(())
         .and_then(|_| at.check_length(3))
         .and_then(|_| at.check_argument_block(2))
-        .and_then(|_| at.assert_only_top_level("define"))
 }
 
 /// compile takes an abstract tree and compiles it - eventually
-/// down to a rust String.
+/// down to a Vector<String>
 ///
-pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<()> {
-    Ok(()).and_then(|_| at.match_symbol("define", check_define))
+pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<IR> {
+    Ok(())
+        .and_then(|_| at.match_symbol("define", check_define))
+        .and_then(|_| at.assert_only_top_level("define"))
+        .and_then(|_| {
+            // compilation stage
+            QBE::new(at)
+                .handle("define", Box::new(|at| Ok(vec![])))
+                .compile()
+        })
 }
 
 #[cfg(test)]
@@ -66,7 +73,8 @@ mod tests {
                     Node(vec![], Position(0,0)),
                 ])], Position(0,0)),
             ]);
-        assert_returns_error(compile(at), "define was invoked without being on the top level");
+        assert_returns_error(compile(at),
+                             "define was invoked without being on the top level");
     }
 
     #[test]
