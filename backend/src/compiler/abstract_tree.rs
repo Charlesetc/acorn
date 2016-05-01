@@ -9,6 +9,13 @@ use self::AbstractTree::*;
 
 static BLOCK_IDENTIFIER: &'static str = "block";
 
+/// TokenType is supposed to relay any information
+/// about the Token that would be known from the first
+/// pass of parsing. For example, the difference between
+/// an int literal `3` or a float literal `4.3` is determined by the
+/// string representation.
+///
+/// A `Symbol` type is the most basic - representing an ident of the language.
 #[derive(Debug)]
 pub enum TokenType {
     Symbol,
@@ -17,6 +24,12 @@ pub enum TokenType {
     Float,
 }
 
+/// The AbstractTree is what is given to the `compile`
+/// function of the compiler module. It consists of
+/// nodes and tokens - nodes simply hold more abstract
+/// trees, whereas tokens have a TokenType and a string 
+/// representation. All AbstractTree's have a position
+/// that is used for reporting errors.
 #[derive(Debug)]
 pub enum AbstractTree<'a> {
     Node(Vec<AbstractTree<'a>>, Position),
@@ -122,6 +135,17 @@ impl<'a> AbstractTree<'a> {
             })
     }
 
+    /// Given an AbstractTree, assert it's a Node not a Token.
+    ///
+    /// # Examples:
+    ///
+    /// ```
+    /// let error = Node(vec![], Position(0,0)).err("this is an error")
+    ///
+    /// Node(vec![], Position(0,0)).assert_node().ok().unwrap()
+    /// Token(Symbol, "", Position(0,0)).assert_node().err().unwrap()
+    /// ```
+    ///
     fn assert_node(&self, error: Result<()>) -> Result<()> {
         match self {
             &Node(_, _) => Ok(()),
@@ -131,10 +155,14 @@ impl<'a> AbstractTree<'a> {
 
     // Functions for reading the ast
 
+    /// Get an immutable reference to the ith argument of a node.
     pub fn argument(&self, i: usize) -> &AbstractTree<'a> {
          self.arguments().get(i).unwrap()
     }
 
+    /// Get an immutabe reference to the arguments of a node
+    ///
+    /// This will panic if called on a Token.
     pub fn arguments(&self) -> &Vec<AbstractTree<'a>> {
         match self {
             &Node(ref ats, _) => { return ats },
@@ -142,6 +170,9 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
+    /// Get the 'name' of a Node - defined to be the
+    /// string of the first token if the abstract tree is
+    /// a node and has a first token.
     pub fn name(&self) -> &str {
         match self {
             &Node(ref ats, _) => {
@@ -156,6 +187,10 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
+    /// The Position of an abstract tree - 
+    /// both a Node and a Token have it, but 
+    /// accessing it requires deconstructing
+    /// which is why this method is useful.
     fn position(&self) -> Position {
         match self {
             &Node(_, ref position) => {
@@ -167,6 +202,8 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
+    /// Generate an utils::Result type from a discription
+    /// passed in and this abstract tree's position.
     fn err(&self, description: String) -> Result<()> {
         Err(Error { description: description, position: self.position() })
     }

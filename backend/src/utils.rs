@@ -5,22 +5,33 @@ use std::process;
 use std::io::Write;
 use std::io;
 
-// Position(line, column)
+/// Represents a line and column number
+///
+/// Position(line: i64, column: i64)
+///
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Position(pub i32, pub i32);
+pub struct Position(pub i64, pub i64);
 
-// position: Position,
+/// Represents an error - consisting of
+/// a description and a position.
+///
+/// Position(line: i64, column: i64)
+///
 #[derive(Debug, Clone)]
 pub struct Error {
     pub description: String,
     pub position: Position,
 }
 
+
+/// This is used to print any errors
+/// that were found in compilation.
+/// 
+/// If there are errors, the process exits.
+///
 pub trait ErrorHandling<T> {
     fn unpack_error(self) -> T;
 }
-
-pub type Result<T> = result::Result<T, Error>;
 
 impl<T> ErrorHandling<T> for Result<T> {
     fn unpack_error(self) -> T {
@@ -39,6 +50,11 @@ impl<T> ErrorHandling<T> for Result<T> {
         }
     }
 }
+
+/// 
+/// The result type used in the compiler
+///
+pub type Result<T> = result::Result<T, Error>;
 
 #[cfg(test)]
 pub mod tests {

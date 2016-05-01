@@ -7,12 +7,18 @@ use self::abstract_tree::{
 };
 use utils::Result;
 
+/// check_define ensures the tree passed to it is valid
+/// for a define call
+///
 fn check_define(at: &mut AbstractTree) -> Result<()> {
     Ok(())
         .and_then(|_| at.check_length(3))
         .and_then(|_| at.check_argument_block(2))
 }
 
+/// compile takes an abstract tree and compiles it - eventually
+/// down to a rust String.
+/// 
 pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<()> {
     Ok(())
         .and_then(|_| at.match_symbol("define", check_define))
