@@ -33,25 +33,24 @@ pub enum AbstractTree<'a> {
 }
 
 impl<'a> AbstractTree<'a> {
-    // pub fn visit_before(&self, f: fn(&AbstractTree)) {
-    //     match self {
-    //         &Node(ref ats, _) => {
-    //             ats.iter()
-    //                .map(|x| {
-    //                    x.visit_before(f);
-    //                    f(x);
-    //                })
-    //                .collect::<Vec<_>>();
-    //         }
-    //         _ => {}
-    //     }
-    // }
-    //
-    // /// assert_only_top_level() will return a Result::Err if
-    // /// a call occurs somewhere that's not the top level.
-    // pub fn assert_only_top_level(&self, f: fn(&AbstractTree)) {
-    //     unimplemented!()
-    // }
+    /// This is only called in assert_only_top_level() so it can
+    /// be baseed to match_symbol()
+    fn fail_for_top_leval_call(a: &mut AbstractTree) -> Result<()> {
+        a.err(format!("{} was invoked without being on the top level", a.name()))
+    }
+
+    /// assert_only_top_level() will return a Result::Err if
+    /// a call occurs somewhere that's not the top level.
+    pub fn assert_only_top_level(&mut self, s: &'a str) -> Result<()> {
+        match self {
+            &mut Node(ref mut ats, _) => {
+                ats.iter_mut().fold(Ok(()), |acc, a| {
+                    acc.and_then(|_| a.match_symbol(s, AbstractTree::fail_for_top_leval_call))
+                })
+            }
+            _ => Ok(()),
+        }
+    }
 
     pub fn match_symbol(&mut self,
                         s: &'a str,
@@ -97,7 +96,7 @@ impl<'a> AbstractTree<'a> {
                     self.err(format!("{} takes {} arguments", self.name(), i - 1))
                 }
             }
-            _ => panic!(format!{"check_length called on not a node: {:?}", self}),
+            _ => panic!(format!("check_length called on not a node: {:?}", self)),
         }
     }
 

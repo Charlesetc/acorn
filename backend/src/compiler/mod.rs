@@ -12,6 +12,7 @@ fn check_define(at: &mut AbstractTree) -> Result<()> {
     Ok(())
         .and_then(|_| at.check_length(3))
         .and_then(|_| at.check_argument_block(2))
+        .and_then(|_| at.assert_only_top_level("define"))
 }
 
 /// compile takes an abstract tree and compiles it - eventually
@@ -30,28 +31,42 @@ mod tests {
     use utils::Position;
     use super::compile;
 
-    #[test]
-    fn test_define_constraints() {
-        let at = abstract_tree_item(vec![
-            Token(Symbol, "define", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
-        ]);
-        assert_returns_error(compile(at), "define takes 2 arguments");
-
-        let at = abstract_tree_item(vec![
-            Token(Symbol, "define", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
-        ]);
-        assert_returns_error(compile(at), "define expects a block for its 2th argument");
-    }
-
     fn construct_define_item<'a>(items: Vec<AbstractTree<'a>>) -> AbstractTree<'a> {
         abstract_tree_item(vec![
             Token(Symbol, "define", Position(0,0)),
             Token(Int, "2", Position(0,0)),
             Node(items, Position(0, 0)),
         ])
+    }
+
+    #[test]
+    fn test_define_constraints() {
+        // Test argument constraint
+        let at = abstract_tree_item(vec![
+            Token(Symbol, "define", Position(0,0)),
+            Token(Int, "2", Position(0,0)),
+        ]);
+        assert_returns_error(compile(at), "define takes 2 arguments");
+
+        // Test need for block constraint
+        let at = abstract_tree_item(vec![
+            Token(Symbol, "define", Position(0,0)),
+            Token(Int, "2", Position(0,0)),
+            Token(Int, "2", Position(0,0)),
+        ]);
+        assert_returns_error(compile(at), "define expects a block for its 2th argument");
+
+        // Test top level constraint
+        let at = construct_define_item(vec![
+                Token(Symbol, "block", Position(0,0)),
+                Node(vec![], Position(0,0)),
+                Node(vec![construct_define_item(vec![
+                    Token(Symbol, "block", Position(0,0)),
+                    Node(vec![], Position(0,0)),
+                    Node(vec![], Position(0,0)),
+                ])], Position(0,0)),
+            ]);
+        assert_returns_error(compile(at), "define was invoked without being on the top level");
     }
 
     #[test]
