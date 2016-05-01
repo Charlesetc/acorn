@@ -26,7 +26,7 @@ pub struct Error {
 
 /// This is used to print any errors
 /// that were found in compilation.
-/// 
+///
 /// If there are errors, the process exits.
 ///
 pub trait ErrorHandling<T> {
@@ -43,7 +43,11 @@ impl<T> ErrorHandling<T> for Result<T> {
             }
             Err(ref error) => {
                 writeln!(stderr, "compilation error:").unwrap();
-                writeln!(stderr, "\tline {} column {}", error.position.0, error.position.1).unwrap();
+                writeln!(stderr,
+                         "\tline {} column {}",
+                         error.position.0,
+                         error.position.1)
+                    .unwrap();
                 writeln!(stderr, "\t{}", error.description).unwrap();
                 process::exit(0)
             }
@@ -51,7 +55,7 @@ impl<T> ErrorHandling<T> for Result<T> {
     }
 }
 
-/// 
+///
 /// The result type used in the compiler
 ///
 pub type Result<T> = result::Result<T, Error>;
@@ -79,11 +83,12 @@ pub mod tests {
                  Token(Symbol, "define", Position(0,0)),
                  Token(Int, "2", Position(0,0))
             ], Position(0, 2)),
-        ], Position(0, 2))
+        ],
+             Position(0, 2))
     }
 
     pub fn abstract_tree_item<'a>(at: Vec<AbstractTree<'a>>) -> AbstractTree {
-        Node(vec![Node(at, Position(0,0))], Position(0,0))
+        Node(vec![Node(at, Position(0, 0))], Position(0, 0))
     }
 
     pub fn assert_returns_error(result: Result<()>, description: &str) {

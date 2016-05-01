@@ -25,6 +25,7 @@ fn main() {
                           Node(vec![Token(Int, "2", Position(0, 2))], Position(0, 2)),
                      ], Position(0, 2)),
                 ], Position(0, 2)),
-            ], Position(0, 2));
+            ],
+                  Position(0, 2));
     compiler::compile(at).unpack_error()
 }

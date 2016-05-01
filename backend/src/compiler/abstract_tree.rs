@@ -1,10 +1,6 @@
 // compiler/abstract_tree.rs
 
-use utils::{
-    Result,
-    Error,
-    Position
-};
+use utils::{Result, Error, Position};
 use self::AbstractTree::*;
 
 static BLOCK_IDENTIFIER: &'static str = "block";
@@ -27,58 +23,65 @@ pub enum TokenType {
 /// The AbstractTree is what is given to the `compile`
 /// function of the compiler module. It consists of
 /// nodes and tokens - nodes simply hold more abstract
-/// trees, whereas tokens have a TokenType and a string 
+/// trees, whereas tokens have a TokenType and a string
 /// representation. All AbstractTree's have a position
 /// that is used for reporting errors.
 #[derive(Debug)]
 pub enum AbstractTree<'a> {
     Node(Vec<AbstractTree<'a>>, Position),
-    Token (
-        TokenType,
-        &'a str,
-        Position
-    ),
+    Token(TokenType, &'a str, Position),
 }
 
 impl<'a> AbstractTree<'a> {
-    // pub fn visit_before(&mut self, f: fn(&mut AbstractTree)) {
+    // pub fn visit_before(&self, f: fn(&AbstractTree)) {
     //     match self {
-    //         &mut Node(ref mut ats) => {
-    //             ats.iter_mut().map(|mut x| {
-    //                 x.visit_before(f);
-    //                 f(x);
-    //             }).collect::<Vec<_>>();
+    //         &Node(ref ats, _) => {
+    //             ats.iter()
+    //                .map(|x| {
+    //                    x.visit_before(f);
+    //                    f(x);
+    //                })
+    //                .collect::<Vec<_>>();
     //         }
-    //         _ => { }
+    //         _ => {}
     //     }
     // }
+    //
+    // /// assert_only_top_level() will return a Result::Err if
+    // /// a call occurs somewhere that's not the top level.
+    // pub fn assert_only_top_level(&self, f: fn(&AbstractTree)) {
+    //     unimplemented!()
+    // }
 
-    pub fn match_symbol(&mut self, s: &'a str, f: fn (&mut AbstractTree) -> Result<()>) -> Result<()> {
+    pub fn match_symbol(&mut self,
+                        s: &'a str,
+                        f: fn(&mut AbstractTree) -> Result<()>)
+                        -> Result<()> {
         let start = match self {
-            &mut Node(ref ats, _) => {
-                match ats.get(0) {
-                    Some(&Token(TokenType::Symbol, a, _)) => {
-                        if s == a {
-                            // this is so I can destructure immutably
-                            // and then call f on the mutable self object
-                            self.err("this is a goto to f(self)".to_string())
-                        } else {
-                            Ok(())
+                        &mut Node(ref ats, _) => {
+                            match ats.get(0) {
+                                Some(&Token(TokenType::Symbol, a, _)) => {
+                                    if s == a {
+                                        // this is so I can destructure immutably
+                                        // and then call f on the mutable self object
+                                        self.err("this is a goto to f(self)".to_string())
+                                    } else {
+                                        Ok(())
+                                    }
+                                }
+                                _ => Ok(()),
+                            }
                         }
-                    },
-                    _ => Ok(()),
-                }
-            },
-            _ => Ok(()),
-        }.or_else(|_| f(self) );
+                        _ => Ok(()),
+                    }
+                    .or_else(|_| f(self));
 
         match self {
             &mut Node(ref mut ats, _) => {
-                ats.iter_mut().fold(start, |results, x| {
-                    results.and_then(|_| x.match_symbol(s, f))
-                })
+                ats.iter_mut().fold(start,
+                                    |results, x| results.and_then(|_| x.match_symbol(s, f)))
             }
-            _ => { start }
+            _ => start,
         }
     }
 
@@ -91,21 +94,23 @@ impl<'a> AbstractTree<'a> {
                 if ats.len() == i {
                     Ok(())
                 } else {
-                    self.err(format!("{} takes {} arguments", self.name(), i-1))
+                    self.err(format!("{} takes {} arguments", self.name(), i - 1))
                 }
             }
-            _ => { panic!(format!{"check_length called on not a node: {:?}", self}) }
+            _ => panic!(format!{"check_length called on not a node: {:?}", self}),
         }
     }
 
+    /// check_argument_block will check to make sure the argument_number'th
+    /// argument is formatted like a block.
     pub fn check_argument_block(&self, argument_number: usize) -> Result<()> {
         let error = self.err(format!("{} expects a block for its {}th argument",
                                      self.name(),
                                      argument_number));
         let argument = self.argument(argument_number);
         Ok(())
-            .and_then(|_| argument.assert_node(error.clone()) )
-            .and_then(|_| argument.check_length(3) )
+            .and_then(|_| argument.assert_node(error.clone()))
+            .and_then(|_| argument.check_length(3))
             .and_then(|_| {
                 // make sure the block starts with 'block'
                 match argument {
@@ -113,7 +118,8 @@ impl<'a> AbstractTree<'a> {
                         let block_error = self.err("a block takes a \
                                                      list of arguments \
                                                      followed by a list \
-                                                     of expressions".to_string());
+                                                     of expressions"
+                                                       .to_string());
                         Ok(())
                             .and_then(|_| {
                                 match ats.get(0).unwrap() {
@@ -157,7 +163,7 @@ impl<'a> AbstractTree<'a> {
 
     /// Get an immutable reference to the ith argument of a node.
     pub fn argument(&self, i: usize) -> &AbstractTree<'a> {
-         self.arguments().get(i).unwrap()
+        self.arguments().get(i).unwrap()
     }
 
     /// Get an immutabe reference to the arguments of a node
@@ -165,8 +171,8 @@ impl<'a> AbstractTree<'a> {
     /// This will panic if called on a Token.
     pub fn arguments(&self) -> &Vec<AbstractTree<'a>> {
         match self {
-            &Node(ref ats, _) => { return ats },
-            _ => { panic!("fn arguments called on a Token") }
+            &Node(ref ats, _) => return ats,
+            _ => panic!("fn arguments called on a Token"),
         }
     }
 
@@ -177,50 +183,48 @@ impl<'a> AbstractTree<'a> {
         match self {
             &Node(ref ats, _) => {
                 match ats.get(0) {
-                    Some(&Token(TokenType::Symbol, a, _)) => {
-                        a
-                    }
-                    _ => { "unknown" }
+                    Some(&Token(TokenType::Symbol, a, _)) => a,
+                    _ => "unknown",
                 }
             }
-            _ => { "token" }
+            _ => "token",
         }
     }
 
-    /// The Position of an abstract tree - 
-    /// both a Node and a Token have it, but 
+    /// The Position of an abstract tree -
+    /// both a Node and a Token have it, but
     /// accessing it requires deconstructing
     /// which is why this method is useful.
     fn position(&self) -> Position {
         match self {
-            &Node(_, ref position) => {
-                position.clone()
-            }
-            &Token(_, _, ref position) => {
-                position.clone()
-            }
+            &Node(_, ref position) => position.clone(),
+            &Token(_, _, ref position) => position.clone(),
         }
     }
 
     /// Generate an utils::Result type from a discription
     /// passed in and this abstract tree's position.
     fn err(&self, description: String) -> Result<()> {
-        Err(Error { description: description, position: self.position() })
+        Err(Error {
+            description: description,
+            position: self.position(),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::AbstractTree;
-    use utils::{
-        Result,
-    };
-    use utils::tests::{
-        generate_data,
-    };
+    use utils::Result;
+    use utils::tests::generate_data;
 
     static mut foo_visitor_count: i64 = 0;
-    fn visitor_match_symbol(_: &mut AbstractTree) -> Result<()> { unsafe { foo_visitor_count += 1; }; Ok(()) }
+    fn visitor_match_symbol(_: &mut AbstractTree) -> Result<()> {
+        unsafe {
+            foo_visitor_count += 1;
+        };
+        Ok(())
+    }
 
     #[test]
     fn test_match_symbol() {

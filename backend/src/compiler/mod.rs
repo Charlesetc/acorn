@@ -2,9 +2,7 @@
 
 pub mod abstract_tree;
 
-use self::abstract_tree::{
-    AbstractTree,
-};
+use self::abstract_tree::AbstractTree;
 use utils::Result;
 
 /// check_define ensures the tree passed to it is valid
@@ -18,18 +16,14 @@ fn check_define(at: &mut AbstractTree) -> Result<()> {
 
 /// compile takes an abstract tree and compiles it - eventually
 /// down to a rust String.
-/// 
+///
 pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<()> {
-    Ok(())
-        .and_then(|_| at.match_symbol("define", check_define))
+    Ok(()).and_then(|_| at.match_symbol("define", check_define))
 }
 
 #[cfg(test)]
 mod tests {
-    use utils::tests::{
-        abstract_tree_item,
-        assert_returns_error,
-    };
+    use utils::tests::{abstract_tree_item, assert_returns_error};
     use compiler::abstract_tree::AbstractTree;
     use compiler::abstract_tree::AbstractTree::*;
     use compiler::abstract_tree::TokenType::*;
@@ -72,7 +66,8 @@ mod tests {
             Token(Int, "2", Position(0,0)),
             Token(Int, "2", Position(0,0)),
         ]);
-        assert_returns_error(compile(at), "a block takes a list of arguments followed by a list of expressions");
+        assert_returns_error(compile(at),
+                             "a block takes a list of arguments followed by a list of expressions");
 
         let at = construct_define_item(vec![
             Token(Symbol, "block", Position(0,0)),
