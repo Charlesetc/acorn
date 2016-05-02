@@ -7,6 +7,13 @@ use self::AbstractTree::*;
 
 static BLOCK_IDENTIFIER: &'static str = "block";
 
+mod utils {
+    pub fn generate_argument_names(i: usize) -> String {
+        // make a range and something like "%arg1 %arg2 %arg3"
+        format!("arg{}", i)
+    }
+}
+
 /// TokenType is supposed to relay any information
 /// about the Token that would be known from the first
 /// pass of parsing. For example, the difference between
@@ -49,13 +56,55 @@ impl<'a> QBEBuilder<'a> {
     pub fn compile_function_call(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         match tree {
             &mut Node(ref mut ats, ref position) => {
-                if ats.len() >= 1 {
-                    Ok(vec![])
+                let length = ats.len();
+                let mut iterator = ats.iter_mut();
+                let mut first_item = iterator.next().unwrap();
+                if length == 1 {
+                    match first_item {
+                        &mut Node(_, _) => self.compile_inner(first_item),
+                        _ => panic!("unimplemented: no support for calling closures yet")
+                    }
+                } else if length >= 1 {
+                    match first_item {
+                        &mut Node(_, ref position) => err_position(position.clone(),
+                            "unimplemented: no support for calling closures yet implemented".to_string()),
+                        &mut Token(TokenType::Symbol, ref mut fuction_name, _) => {
+                            let mut i = 0;
+                            let mut ir = iterator.fold(Ok(vec![]), |acc, argument| {
+                                acc.and_then(|mut vector| {
+                                    self.compile_inner(argument).and_then(|mut argument_ir| {
+                                        i += 1;
+                                        argument_ir.push(format!("%arg{} =l %ret", i));
+                                        vector.append(&mut argument_ir);
+                                        Ok(vector)
+                                    })
+                                })
+                            });
+
+                            let argument_names = self::utils::generate_argument_names(length);
+                            ir.iter_mut()
+                            .map(|inner| inner.push(format!("%ret =l call ${} {}", fuction_name, argument_names)))
+                            .collect::<Vec<_>>();
+                            ir
+                        },
+                        &mut Token(ref token_type, ref data, ref position) => {
+                            err_position(position.clone(), format!("cannot call token {} of type {:?}", data, token_type))
+                        }
+                    }
                 } else {
                     err_position(position.clone(), "node with zero items".to_string())
                 }
             }
-            _ => panic!("compile_function_callnot called on a node.")
+            _ => panic!("compile_function_call not called on a node.")
+        }
+    }
+
+    pub fn compile_token(&mut self, tree: &mut AbstractTree) -> Result<IR> {
+        match tree {
+            &mut Token(TokenType::Symbol, _, ref position) => err_position(position.clone(), "variables are not yet implemented".to_string()),
+            &mut Token(TokenType::Int, ref integer_literal, _) =>
+                Ok(vec![format!("%ret =l {}", integer_literal)]),
+            _ => panic!("compile_token not called on a token.")
         }
     }
 
@@ -66,7 +115,10 @@ impl<'a> QBEBuilder<'a> {
                 return transformation.unwrap()(tree);
             }
         }
-        self.compile_function_call(tree)
+        match tree {
+            &mut Node(_, _) => self.compile_function_call(tree),
+            _ => self.compile_token(tree),
+        }
     }
 }
 
