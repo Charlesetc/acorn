@@ -50,7 +50,20 @@ impl<'a> QBEBuilder<'a> {
 
     pub fn compile(&mut self) -> Result<IR> {
         let mut abstract_tree = self.abstract_tree.take().unwrap();
-        self.compile_inner(&mut abstract_tree)
+        match abstract_tree {
+            Node(ref mut ats, _) => {
+                ats.iter_mut().fold(Ok(vec![]), |acc, node| {
+                    acc.and_then(|mut ir| {
+                        self.compile_inner(node).and_then(|mut most_recently_compiled| {
+                            ir.append(&mut most_recently_compiled);
+                            Ok(ir)
+                        })
+                    })
+                })
+            },
+            _ => panic!("there should not be a node at the top level \
+                    OR only call compile on the top level.")
+        }
     }
 
     pub fn compile_function_call(&mut self, tree: &mut AbstractTree) -> Result<IR> {
@@ -60,10 +73,7 @@ impl<'a> QBEBuilder<'a> {
                 let mut iterator = ats.iter_mut();
                 let mut first_item = iterator.next().unwrap();
                 if length == 1 {
-                    match first_item {
-                        &mut Node(_, _) => self.compile_inner(first_item),
-                        _ => panic!("unimplemented: no support for calling closures yet")
-                    }
+                    self.compile_inner(first_item)
                 } else if length >= 1 {
                     match first_item {
                         &mut Node(_, ref position) => err_position(position.clone(),
@@ -104,7 +114,7 @@ impl<'a> QBEBuilder<'a> {
             &mut Token(TokenType::Symbol, _, ref position) => err_position(position.clone(), "variables are not yet implemented".to_string()),
             &mut Token(TokenType::Int, ref integer_literal, _) =>
                 Ok(vec![format!("%ret =l {}", integer_literal)]),
-            _ => panic!("compile_token not called on a token.")
+            _ => tree.err("compile_token not called on a token.".to_string())
         }
     }
 
