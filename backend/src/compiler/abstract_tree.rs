@@ -24,26 +24,22 @@ mod utils {
 #[derive(Debug)]
 pub enum TokenType {
     Symbol,
-    Str,
     Int,
-    Float,
+    // Str,
+    // Float,
 }
 
-pub struct QBEBuilder<'a> {
-    abstract_tree: Option<AbstractTree<'a>>,
-    transformations: HashMap<&'a str, fn(&mut AbstractTree) -> Result<IR>>,
+pub struct QBEBackend<'a> {
+    pub abstract_tree: Option<AbstractTree<'a>>,
+    pub transformations: HashMap<&'a str, fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>>,
 }
 
-pub mod qbe_backend {
-    use super::{QBEBuilder, AbstractTree};
-    use std::collections::HashMap;
-    pub fn new<'a>(a: AbstractTree<'a>) -> QBEBuilder<'a> {
-        QBEBuilder { abstract_tree: Some(a), transformations: HashMap::new() }
+impl<'a> QBEBackend<'a> {
+    pub fn new(a: AbstractTree) -> QBEBackend {
+        QBEBackend { abstract_tree: Some(a), transformations: HashMap::new() }
     }
-}
 
-impl<'a> QBEBuilder<'a> {
-    pub fn handle(mut self, key: &'a str, f: fn(&mut AbstractTree) -> Result<IR>) -> QBEBuilder<'a> {
+    pub fn handle(mut self, key: &'a str, f: fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>) -> QBEBackend<'a> {
         self.transformations.insert(key, f);
         self
     }
@@ -120,9 +116,10 @@ impl<'a> QBEBuilder<'a> {
 
     pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         {
-            let transformation = self.transformations.get(tree.name());
+            let transformation = self.transformations.remove(tree.name());
             if transformation.is_some() {
-                return transformation.unwrap()(tree);
+                let function = transformation.unwrap();
+                return function(self, tree);
             }
         }
         match tree {
@@ -153,7 +150,7 @@ impl<'a> AbstractTree<'a> {
 
     /// assert_only_top_level() will return a Result::Err if
     /// a call occurs somewhere that's not the top level.
-    pub fn assert_only_top_level(& mut self, s: &'a str) -> Result<()> {
+    pub fn assert_only_top_level(&mut self, s: &'a str) -> Result<()> {
         // Go two nodes deep and assert there are no more after that.
         match self {
             &mut Node(ref mut ats, _) => {

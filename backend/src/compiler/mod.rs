@@ -2,7 +2,7 @@
 
 pub mod abstract_tree;
 
-use self::abstract_tree::{AbstractTree, qbe_backend};
+use self::abstract_tree::{AbstractTree, QBEBackend};
 use utils::{Result, IR};
 
 /// check_define ensures the tree passed to it is valid
@@ -14,20 +14,23 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
         .and_then(|_| at.check_argument_block(2))
 }
 
-fn compile_define<'a>(_: &mut AbstractTree) -> Result<IR> {
-    Ok(vec!["some qbe ir".to_string()])
+fn compile_define(this: &mut QBEBackend, _: &mut AbstractTree) -> Result<IR> {
+    // Unfortuntately, I'm not sure of a better way to do this.
+    // If I try to call a function with a QBEBackend that has that
+    // as a key, borrowing will fail.
+    this.transformations.insert("define", compile_define);
+    Ok(vec!["@start".to_string(), "@end".to_string()])
 }
 
 /// compile takes an abstract tree and compiles it - eventually
-/// down to a Vector<String>
-///
+/// down to IR
 pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<IR> {
     Ok(())
         .and_then(|_| at.match_symbol("define", check_define))
         .and_then(|_| at.assert_only_top_level("define") )
         .and_then(|_| {
             // compilation stage
-            qbe_backend::new(at)
+            QBEBackend::new(at)
                 .handle("define", compile_define)
                 .compile()
         })
