@@ -23,6 +23,11 @@ pub struct Error {
     pub position: Position,
 }
 
+/// The compiled form of acorn:
+/// each item in the vector should
+/// represent one line of qbe ir.
+pub type IR = Vec<String>;
+
 
 /// This is used to print any errors
 /// that were found in compilation.
@@ -33,7 +38,7 @@ pub trait ErrorHandling<T> {
     fn unpack_error(self) -> T;
 }
 
-impl<T> ErrorHandling<T> for Result<T> {
+impl<'a, T> ErrorHandling<T> for Result<T> {
     fn unpack_error(self) -> T {
         let mut stderr = &mut io::stderr();
         match self {
@@ -95,4 +100,12 @@ pub mod tests {
         assert_eq!(result.err().unwrap().description, description)
     }
 
+}
+
+
+pub fn err_position<T>(position: Position, description: String) -> Result<T> {
+    Err(Error {
+        description: description,
+        position: position,
+    })
 }

@@ -2,16 +2,20 @@
 
 pub mod abstract_tree;
 
-use self::abstract_tree::{AbstractTree, IR, QBE};
-use utils::Result;
+use self::abstract_tree::{AbstractTree, qbe_backend};
+use utils::{Result, IR};
 
 /// check_define ensures the tree passed to it is valid
 /// for a define call
 ///
-fn check_define(at: &mut AbstractTree) -> Result<()> {
+fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
     Ok(())
         .and_then(|_| at.check_length(3))
         .and_then(|_| at.check_argument_block(2))
+}
+
+fn compile_define<'a>(_: &mut AbstractTree) -> Result<IR> {
+    Ok(vec!["some qbe ir".to_string()])
 }
 
 /// compile takes an abstract tree and compiles it - eventually
@@ -20,11 +24,11 @@ fn check_define(at: &mut AbstractTree) -> Result<()> {
 pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<IR> {
     Ok(())
         .and_then(|_| at.match_symbol("define", check_define))
-        .and_then(|_| at.assert_only_top_level("define"))
+        .and_then(|_| at.assert_only_top_level("define") )
         .and_then(|_| {
             // compilation stage
-            QBE::new(at)
-                .handle("define", Box::new(|at| Ok(vec![])))
+            qbe_backend::new(at)
+                .handle("define", compile_define)
                 .compile()
         })
 }

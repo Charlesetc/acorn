@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use utils::{Result, Error, Position};
+use utils::{Result, Position, IR, err_position};
 use self::AbstractTree::*;
 
 static BLOCK_IDENTIFIER: &'static str = "block";
@@ -22,14 +22,12 @@ pub enum TokenType {
     Float,
 }
 
-pub type IR = Vec<String>;
-
 pub struct QBEBuilder<'a> {
     abstract_tree: Option<AbstractTree<'a>>,
-    transformations: HashMap<&'a str, Box<Fn(&mut AbstractTree) -> Result<IR>>>,
+    transformations: HashMap<&'a str, fn(&mut AbstractTree) -> Result<IR>>,
 }
 
-pub mod QBE {
+pub mod qbe_backend {
     use super::{QBEBuilder, AbstractTree};
     use std::collections::HashMap;
     pub fn new<'a>(a: AbstractTree<'a>) -> QBEBuilder<'a> {
@@ -38,7 +36,7 @@ pub mod QBE {
 }
 
 impl<'a> QBEBuilder<'a> {
-    pub fn handle(mut self, key: &'a str, f: Box<Fn(&mut AbstractTree) -> Result<IR>>) -> QBEBuilder<'a> {
+    pub fn handle(mut self, key: &'a str, f: fn(&mut AbstractTree) -> Result<IR>) -> QBEBuilder<'a> {
         self.transformations.insert(key, f);
         self
     }
@@ -48,18 +46,27 @@ impl<'a> QBEBuilder<'a> {
         self.compile_inner(&mut abstract_tree)
     }
 
-    pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
-        match self.transformations.get(tree.name()) {
-            Some(function) => { function(tree) }
-            None => {
+    pub fn compile_function_call(&mut self, tree: &mut AbstractTree) -> Result<IR> {
+        match tree {
+            &mut Node(ref mut ats, ref position) => {
+                if ats.len() >= 1 {
+                    Ok(vec![])
+                } else {
+                    err_position(position.clone(), "node with zero items".to_string())
+                }
+            }
+            _ => panic!("compile_function_callnot called on a node.")
+        }
+    }
 
-                // perform function call
-                unimplemented![]
-                // ats.iter_mut().fold(Ok(vec![]), |acc, at| {
-                //     acc.and_then(|ir| self.compile_inner(at))
-                // })
+    pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
+        {
+            let transformation = self.transformations.get(tree.name());
+            if transformation.is_some() {
+                return transformation.unwrap()(tree);
             }
         }
+        self.compile_function_call(tree)
     }
 }
 
@@ -84,7 +91,7 @@ impl<'a> AbstractTree<'a> {
 
     /// assert_only_top_level() will return a Result::Err if
     /// a call occurs somewhere that's not the top level.
-    pub fn assert_only_top_level(&mut self, s: &'a str) -> Result<()> {
+    pub fn assert_only_top_level(& mut self, s: &'a str) -> Result<()> {
         // Go two nodes deep and assert there are no more after that.
         match self {
             &mut Node(ref mut ats, _) => {
@@ -258,11 +265,8 @@ impl<'a> AbstractTree<'a> {
 
     /// Generate an utils::Result type from a discription
     /// passed in and this abstract tree's position.
-    fn err(&self, description: String) -> Result<()> {
-        Err(Error {
-            description: description,
-            position: self.position(),
-        })
+    fn err<T>(&self, description: String) -> Result<T> {
+        err_position(self.position(), description)
     }
 }
 
@@ -300,12 +304,12 @@ mod tests {
         let mut data = generate_data();
         assert!(data.match_symbol("define", visitor_check_length_2).is_ok());
         assert!(data.match_symbol("define", visitor_check_length_1).is_err());
-    }
+        }
 
     #[test]
     fn test_err_and_position() {
         let data = generate_data();
-        let error = data.err("this is an error".to_string()).err().unwrap();
+        let error = data.err::<Result<()>>("this is an error".to_string()).err().unwrap();
         assert_eq!(error.description, "this is an error".to_string());
         assert_eq!(error.position, data.position());
     }
