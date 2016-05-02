@@ -1,0 +1,24 @@
+<svg width="80.006198" height="91.114148" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient y2="0" x2="1" y1="0" x1="0" id="svg_6">
+   <stop offset="0.644531" stop-color="#none"/>
+   <stop offset="1" stop-opacity="0.992188" stop-color="#707070"/>
+  </linearGradient>
+  <linearGradient y2="0" x2="1" y1="0.7" x1="0" id="svg_16">
+   <stop offset="0.230469" stop-opacity="0.996094" stop-color="#000000"/>
+   <stop offset="1" stop-opacity="0.992188" stop-color="#7b24d8"/>
+  </linearGradient>
+ </defs>
+ <metadata id="metadata7">image/svg+xml</metadata>
+ <g>
+  <title>background</title>
+  <rect fill="none" id="canvas_background" height="402" width="582" y="-1" x="-1"/>
+ </g>
+ <g>
+  <title>Layer 1</title>
+  <g id="layer1">
+   <path clip-rule="nonzero" fill="url(#svg_6)" fill-rule="evenodd" stroke-width="1px" stroke-miterlimit="4" stroke-dashoffset="0" id="path3420" d="m39.709961,7c-1.961151,0.011108 -3.950958,0.104797 -5.959381,0.290619c-11.76947,1.088989 -20.909973,7.421539 -27.415237,13.793365c19.125565,-13.369751 29.652481,1.627563 29.562881,1.000397c14.012634,0.971222 31.26947,19.499512 43.885956,1.539825c-9.829437,-8.799896 -26.661224,-16.462677 -40.074219,-16.624207z"/>
+   <path clip-rule="nonzero" fill="url(#svg_16)" fill-rule="evenodd" stroke-width="1px" stroke-miterlimit="4" stroke-dashoffset="0" id="path3340-7-5" d="m80.006195,26.654236c-12.616455,17.959656 -29.873444,-0.568634 -43.886078,-1.539856c0.0896,0.627197 -10.437378,-14.369995 -29.562943,-1.000244c-14.06369,13.041595 -1.718445,33.280823 2.181839,41.453247c10.418488,21.830261 22.83551,25.412689 43.540924,25.546783c32.384064,-21.657684 22.667084,-39.615112 27.726257,-64.45993z"/>
+  </g>
+ </g>
+</svg>
