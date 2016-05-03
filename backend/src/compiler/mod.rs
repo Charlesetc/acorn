@@ -14,8 +14,24 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
         .and_then(|_| at.check_argument_block(2))
 }
 
-fn compile_define(backend: &mut QBEBackend, _: &mut AbstractTree) -> Result<IR> {
-    Ok(vec!["@start".to_string(), "@end".to_string()])
+fn compile_define(backend: &mut QBEBackend, tree: &mut AbstractTree) -> Result<IR> {
+
+    let mut arguments = tree.arguments_mut();
+    let block = arguments.pop().unwrap();
+
+    let mut iterator = arguments.iter();
+    iterator.next(); // get rid of the call to 'define'
+    let name = iterator.next().unwrap().name();
+
+    let mut function_definition = format!("export function l ${}(", name);
+    for argument in iterator {
+        function_definition.push_str(&format!("l {},", argument.name()));
+    }
+    function_definition.push_str(") {");
+
+    let mut ir = vec![function_definition, "@start".to_string()];
+    ir.push("@end".to_string());
+    Ok(ir)
 }
 
 /// compile takes an abstract tree and compiles it - eventually
@@ -23,7 +39,7 @@ fn compile_define(backend: &mut QBEBackend, _: &mut AbstractTree) -> Result<IR> 
 pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<IR> {
     Ok(())
         .and_then(|_| at.match_symbol("define", check_define))
-        .and_then(|_| at.assert_only_top_level("define") )
+        .and_then(|_| at.assert_only_top_level("define"))
         .and_then(|_| {
             // compilation stage
             QBEBackend::new(at)

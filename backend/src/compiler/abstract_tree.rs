@@ -11,7 +11,7 @@ mod utils {
     pub fn generate_argument_names(i: usize) -> String {
         let mut output = String::new();
         for x in 0..i {
-            output = output + &format!("arg{}", i)
+            output.push_str(&format!("arg{}", x));
         }
         output
     }
@@ -27,9 +27,8 @@ mod utils {
 #[derive(Debug)]
 pub enum TokenType {
     Symbol,
-    Int,
-    // Str,
-    // Float,
+    Int, /* Str,
+          * Float, */
 }
 
 pub struct QBEBackend<'a> {
@@ -39,10 +38,16 @@ pub struct QBEBackend<'a> {
 
 impl<'a> QBEBackend<'a> {
     pub fn new(a: AbstractTree) -> QBEBackend {
-        QBEBackend { abstract_tree: Some(a), transformations: HashMap::new() }
+        QBEBackend {
+            abstract_tree: Some(a),
+            transformations: HashMap::new(),
+        }
     }
 
-    pub fn handle(mut self, key: &'a str, f: fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>) -> QBEBackend<'a> {
+    pub fn handle(mut self,
+                  key: &'a str,
+                  f: fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>)
+                  -> QBEBackend<'a> {
         self.transformations.insert(key, f);
         self
     }
@@ -59,9 +64,11 @@ impl<'a> QBEBackend<'a> {
                         })
                     })
                 })
-            },
-            _ => panic!("there should not be a node at the top level \
-                    OR only call compile on the top level.")
+            }
+            _ => {
+                panic!("there should not be a node at the top level OR only call compile on the \
+                        top level.")
+            }
         }
     }
 
@@ -75,8 +82,12 @@ impl<'a> QBEBackend<'a> {
                     self.compile_inner(first_item)
                 } else if length >= 1 {
                     match first_item {
-                        &mut Node(_, ref position) => err_position(position.clone(),
-                            "unimplemented: no support for calling closures yet implemented".to_string()),
+                        &mut Node(_, ref position) => {
+                            err_position(position.clone(),
+                                         "unimplemented: no support for calling closures yet \
+                                          implemented"
+                                             .to_string())
+                        }
                         &mut Token(TokenType::Symbol, ref mut fuction_name, _) => {
                             let mut i = 0;
                             let mut ir = iterator.fold(Ok(vec![]), |acc, argument| {
@@ -92,28 +103,39 @@ impl<'a> QBEBackend<'a> {
 
                             let argument_names = self::utils::generate_argument_names(length);
                             ir.iter_mut()
-                            .map(|inner| inner.push(format!("%ret =l call ${} {}", fuction_name, argument_names)))
-                            .collect::<Vec<_>>();
+                              .map(|inner| {
+                                  inner.push(format!("%ret =l call ${} {}",
+                                                     fuction_name,
+                                                     argument_names))
+                              })
+                              .collect::<Vec<_>>();
                             ir
-                        },
+                        }
                         &mut Token(ref token_type, ref data, ref position) => {
-                            err_position(position.clone(), format!("cannot call token {} of type {:?}", data, token_type))
+                            err_position(position.clone(),
+                                         format!("cannot call token {} of type {:?}",
+                                                 data,
+                                                 token_type))
                         }
                     }
                 } else {
                     err_position(position.clone(), "node with zero items".to_string())
                 }
             }
-            _ => panic!("compile_function_call not called on a node.")
+            _ => panic!("compile_function_call not called on a node."),
         }
     }
 
     pub fn compile_token(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         match tree {
-            &mut Token(TokenType::Symbol, _, ref position) => err_position(position.clone(), "variables are not yet implemented".to_string()),
-            &mut Token(TokenType::Int, ref integer_literal, _) =>
-                Ok(vec![format!("%ret =l {}", integer_literal)]),
-            _ => tree.err("compile_token not called on a token.".to_string())
+            &mut Token(TokenType::Symbol, _, ref position) => {
+                err_position(position.clone(),
+                             "variables are not yet implemented".to_string())
+            }
+            &mut Token(TokenType::Int, ref integer_literal, _) => {
+                Ok(vec![format!("%ret =l {}", integer_literal)])
+            }
+            _ => tree.err("compile_token not called on a token.".to_string()),
         }
     }
 
@@ -300,6 +322,13 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
+    pub fn arguments_mut(&mut self) -> &mut Vec<AbstractTree<'a>> {
+        match self {
+            &mut Node(ref mut ats, _) => return ats,
+            _ => panic!("fn arguments called on a Token"),
+        }
+    }
+
     /// Get the 'name' of a Node - defined to be the
     /// string of the first token if the abstract tree is
     /// a node and has a first token.
@@ -311,7 +340,7 @@ impl<'a> AbstractTree<'a> {
                     _ => "unknown",
                 }
             }
-            _ => "token",
+            &Token(_, data, _) => data,
         }
     }
 
@@ -334,7 +363,7 @@ impl<'a> AbstractTree<'a> {
 
     fn is_node(&self) -> bool {
         match self {
-            &Node(_,_) => true,
+            &Node(_, _) => true,
             _ => false,
         }
     }
@@ -374,7 +403,7 @@ mod tests {
         let mut data = generate_data();
         assert!(data.match_symbol("define", visitor_check_length_2).is_ok());
         assert!(data.match_symbol("define", visitor_check_length_1).is_err());
-        }
+    }
 
     #[test]
     fn test_err_and_position() {

@@ -28,7 +28,8 @@ fn main() {
                 ], Position(10, 0))
             ], Position(11, 0)),
             ], Position(12, 0)),
-        ], Position(13, 0));
+        ],
+                  Position(13, 0));
     let ir = compiler::compile(at).unpack_error();
     for line in ir {
         println!("{}", line)
