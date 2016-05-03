@@ -14,11 +14,7 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
         .and_then(|_| at.check_argument_block(2))
 }
 
-fn compile_define(this: &mut QBEBackend, _: &mut AbstractTree) -> Result<IR> {
-    // Unfortuntately, I'm not sure of a better way to do this.
-    // If I try to call a function with a QBEBackend that has that
-    // as a key, borrowing will fail.
-    this.transformations.insert("define", compile_define);
+fn compile_define(backend: &mut QBEBackend, _: &mut AbstractTree) -> Result<IR> {
     Ok(vec!["@start".to_string(), "@end".to_string()])
 }
 

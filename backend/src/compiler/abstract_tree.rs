@@ -9,8 +9,11 @@ static BLOCK_IDENTIFIER: &'static str = "block";
 
 mod utils {
     pub fn generate_argument_names(i: usize) -> String {
-        // make a range and something like "%arg1 %arg2 %arg3"
-        format!("arg{}", i)
+        let mut output = String::new();
+        for x in 0..i {
+            output = output + &format!("arg{}", i)
+        }
+        output
     }
 }
 
@@ -116,15 +119,16 @@ impl<'a> QBEBackend<'a> {
 
     pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         {
-            let transformation = self.transformations.remove(tree.name());
+            let transformation = self.transformations.get(tree.name()).map(|trsfmts| *trsfmts);
             if transformation.is_some() {
                 let function = transformation.unwrap();
                 return function(self, tree);
             }
         }
-        match tree {
-            &mut Node(_, _) => self.compile_function_call(tree),
-            _ => self.compile_token(tree),
+        if tree.is_node() {
+            self.compile_function_call(tree)
+        } else {
+            self.compile_token(tree)
         }
     }
 }
@@ -326,6 +330,13 @@ impl<'a> AbstractTree<'a> {
     /// passed in and this abstract tree's position.
     fn err<T>(&self, description: String) -> Result<T> {
         err_position(self.position(), description)
+    }
+
+    fn is_node(&self) -> bool {
+        match self {
+            &Node(_,_) => true,
+            _ => false,
+        }
     }
 }
 
