@@ -16,22 +16,41 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
 
 fn compile_define(backend: &mut QBEBackend, tree: &mut AbstractTree) -> Result<IR> {
 
-    let mut arguments = tree.arguments_mut();
-    let block = arguments.pop().unwrap();
+    let mut arguments_to_define = tree.arguments_mut();
+    let mut block = arguments_to_define.pop().unwrap();
 
-    let mut iterator = arguments.iter();
-    iterator.next(); // get rid of the call to 'define'
-    let name = iterator.next().unwrap().name();
+    let mut top_level_iterator = arguments_to_define.iter();
+    top_level_iterator.next(); // get rid of the call to 'define'
+
+    let name = top_level_iterator.next().unwrap().name();
+
+    let mut arguments_to_block = block.arguments_mut();
+    let mut block_expressions = arguments_to_block.pop().unwrap();
 
     let mut function_definition = format!("export function l ${}(", name);
-    for argument in iterator {
+    for argument in arguments_to_block {
         function_definition.push_str(&format!("l {},", argument.name()));
     }
     function_definition.push_str(") {");
 
-    let mut ir = vec![function_definition, "@start".to_string()];
-    ir.push("@end".to_string());
-    Ok(ir)
+    let ir = vec![function_definition, "@start".to_string()];
+
+    block_expressions
+    .arguments_mut()
+    .iter_mut()
+    .fold(Ok(ir), |acc, expression| {
+        acc.and_then(|mut ir|
+            backend.compile_inner(expression).and_then(|mut new_ir| {
+                ir.append(&mut new_ir);
+                Ok(ir)
+            })
+        )
+    }).and_then(|mut ir| {
+        ir.push("@end".to_string());
+        ir.push("ret %ret".to_string());
+        ir.push("}".to_string());
+        Ok(ir)
+    })
 }
 
 /// compile takes an abstract tree and compiles it - eventually
@@ -101,7 +120,7 @@ mod tests {
         let at = construct_define_item(vec![
             Token(Symbol, "block", Position(0,0)),
         ]);
-        assert_returns_error(compile(at), "block takes 2 arguments");
+        assert_returns_error(compile(at), "block takes at least 1 arguments");
 
         let at = construct_define_item(vec![
             Token(Symbol, "block", Position(0,0)),

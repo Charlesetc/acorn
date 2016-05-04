@@ -8,11 +8,12 @@ use self::AbstractTree::*;
 static BLOCK_IDENTIFIER: &'static str = "block";
 
 mod utils {
-    pub fn generate_argument_names(i: usize) -> String {
-        let mut output = String::new();
+    pub fn generate_function_arguments(i: usize) -> String {
+        let mut output = "(".to_string();
         for x in 0..i {
-            output.push_str(&format!("arg{}", x));
+            output.push_str(&format!("l arg{}, ", x));
         }
+        output.push_str(")");
         output
     }
 }
@@ -101,7 +102,7 @@ impl<'a> QBEBackend<'a> {
                                 })
                             });
 
-                            let argument_names = self::utils::generate_argument_names(length);
+                            let argument_names = self::utils::generate_function_arguments(length);
                             ir.iter_mut()
                               .map(|inner| {
                                   inner.push(format!("%ret =l call ${} {}",
@@ -234,6 +235,19 @@ impl<'a> AbstractTree<'a> {
 
     // Functions for validating ast
 
+    pub fn check_min_length(&self, i: usize) -> Result<()> {
+        match self {
+            &Node(ref ats, _) => {
+                if ats.len() >= i {
+                    Ok(())
+                } else {
+                    self.err(format!("{} takes at least {} arguments", self.name(), i - 1))
+                }
+            }
+            _ => panic!(format!("check_length called on not a node: {:?}", self)),
+        }
+    }
+
     pub fn check_length(&self, i: usize) -> Result<()> {
         match self {
             &Node(ref ats, _) => {
@@ -256,7 +270,7 @@ impl<'a> AbstractTree<'a> {
         let argument = self.argument(argument_number);
         Ok(())
             .and_then(|_| argument.assert_node(error.clone()))
-            .and_then(|_| argument.check_length(3))
+            .and_then(|_| argument.check_min_length(2))
             .and_then(|_| {
                 // make sure the block starts with 'block'
                 match argument {
@@ -279,8 +293,7 @@ impl<'a> AbstractTree<'a> {
                                     _ => error.clone(),
                                 }
                             })
-                            .and_then(|_| ats[1].assert_node(block_error.clone()))
-                            .and_then(|_| ats[2].assert_node(block_error.clone()))
+                            .and_then(|_| ats.last().unwrap().assert_node(block_error.clone()))
                     }
                     _ => panic!("I already asserted this was a node."),
                 }
