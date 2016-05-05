@@ -2,14 +2,20 @@
 
 mod compiler;
 mod utils;
+mod parser;
 
 
 use compiler::abstract_tree::AbstractTree::*;
 use compiler::abstract_tree::TokenType::*;
 use utils::Position;
 use utils::ErrorHandling;
+use parser::parse;
 
 fn main() {
+    println!("{:?}", parse("(hi there)").unwrap());
+}
+
+fn main2() {
     let at = Node(vec![
         Node(vec![
             Token(Symbol, "define".to_string(), Position(1, 0)),

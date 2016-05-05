@@ -35,22 +35,22 @@ fn compile_define(backend: &mut QBEBackend, tree: &mut AbstractTree) -> Result<I
 
     let ir = vec![function_definition, "@start".to_string()];
 
-    block_expressions
-    .arguments_mut()
-    .iter_mut()
-    .fold(Ok(ir), |acc, expression| {
-        acc.and_then(|mut ir|
-            backend.compile_inner(expression).and_then(|mut new_ir| {
-                ir.append(&mut new_ir);
-                Ok(ir)
-            })
-        )
-    }).and_then(|mut ir| {
-        ir.push("@end".to_string());
-        ir.push("ret %ret".to_string());
-        ir.push("}".to_string());
-        Ok(ir)
-    })
+    block_expressions.arguments_mut()
+                     .iter_mut()
+                     .fold(Ok(ir), |acc, expression| {
+                         acc.and_then(|mut ir| {
+                             backend.compile_inner(expression).and_then(|mut new_ir| {
+                                 ir.append(&mut new_ir);
+                                 Ok(ir)
+                             })
+                         })
+                     })
+                     .and_then(|mut ir| {
+                         ir.push("@end".to_string());
+                         ir.push("ret %ret".to_string());
+                         ir.push("}".to_string());
+                         Ok(ir)
+                     })
 }
 
 /// compile takes an abstract tree and compiles it - eventually

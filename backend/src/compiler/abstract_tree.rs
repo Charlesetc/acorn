@@ -27,6 +27,7 @@ mod utils {
 /// A `Symbol` type is the most basic - representing an ident of the language.
 #[derive(Debug)]
 pub enum TokenType {
+    Flag, // Used internally - should not be encountered by outside people.
     Symbol,
     Int, /* Str,
           * Float, */
@@ -142,7 +143,9 @@ impl QBEBackend {
 
     pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         {
-            let transformation = self.transformations.get(&tree.name().clone()).map(|trsfmts| *trsfmts);
+            let transformation = self.transformations
+                                     .get(&tree.name().clone())
+                                     .map(|trsfmts| *trsfmts);
             if transformation.is_some() {
                 let function = transformation.unwrap();
                 return function(self, tree);
@@ -201,9 +204,9 @@ impl AbstractTree {
     }
 
     pub fn match_symbol<'a>(&mut self,
-                        s: &'a str,
-                        f: fn(&mut AbstractTree) -> Result<()>)
-                        -> Result<()> {
+                            s: &'a str,
+                            f: fn(&mut AbstractTree) -> Result<()>)
+                            -> Result<()> {
         let start = match self {
                         &mut Node(ref ats, _) => {
                             match ats.get(0) {
