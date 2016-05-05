@@ -32,12 +32,12 @@ pub enum TokenType {
           * Float, */
 }
 
-pub struct QBEBackend<'a> {
-    pub abstract_tree: Option<AbstractTree<'a>>,
-    pub transformations: HashMap<&'a str, fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>>,
+pub struct QBEBackend {
+    pub abstract_tree: Option<AbstractTree>,
+    pub transformations: HashMap<String, fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>>,
 }
 
-impl<'a> QBEBackend<'a> {
+impl QBEBackend {
     pub fn new(a: AbstractTree) -> QBEBackend {
         QBEBackend {
             abstract_tree: Some(a),
@@ -46,9 +46,9 @@ impl<'a> QBEBackend<'a> {
     }
 
     pub fn handle(mut self,
-                  key: &'a str,
+                  key: String,
                   f: fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>)
-                  -> QBEBackend<'a> {
+                  -> QBEBackend {
         self.transformations.insert(key, f);
         self
     }
@@ -142,7 +142,7 @@ impl<'a> QBEBackend<'a> {
 
     pub fn compile_inner(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         {
-            let transformation = self.transformations.get(tree.name()).map(|trsfmts| *trsfmts);
+            let transformation = self.transformations.get(&tree.name().clone()).map(|trsfmts| *trsfmts);
             if transformation.is_some() {
                 let function = transformation.unwrap();
                 return function(self, tree);
@@ -163,12 +163,12 @@ impl<'a> QBEBackend<'a> {
 /// representation. All AbstractTree's have a position
 /// that is used for reporting errors.
 #[derive(Debug)]
-pub enum AbstractTree<'a> {
-    Node(Vec<AbstractTree<'a>>, Position),
-    Token(TokenType, &'a str, Position),
+pub enum AbstractTree {
+    Node(Vec<AbstractTree>, Position),
+    Token(TokenType, String, Position),
 }
 
-impl<'a> AbstractTree<'a> {
+impl AbstractTree {
     /// This is only called in assert_only_top_level() so it can
     /// be baseed to match_symbol()
     fn fail_for_top_leval_call(a: &mut AbstractTree) -> Result<()> {
@@ -177,7 +177,7 @@ impl<'a> AbstractTree<'a> {
 
     /// assert_only_top_level() will return a Result::Err if
     /// a call occurs somewhere that's not the top level.
-    pub fn assert_only_top_level(&mut self, s: &'a str) -> Result<()> {
+    pub fn assert_only_top_level<'a>(&mut self, s: &'a str) -> Result<()> {
         // Go two nodes deep and assert there are no more after that.
         match self {
             &mut Node(ref mut ats, _) => {
@@ -200,14 +200,14 @@ impl<'a> AbstractTree<'a> {
         }
     }
 
-    pub fn match_symbol(&mut self,
+    pub fn match_symbol<'a>(&mut self,
                         s: &'a str,
                         f: fn(&mut AbstractTree) -> Result<()>)
                         -> Result<()> {
         let start = match self {
                         &mut Node(ref ats, _) => {
                             match ats.get(0) {
-                                Some(&Token(TokenType::Symbol, a, _)) => {
+                                Some(&Token(TokenType::Symbol, ref a, _)) => {
                                     if s == a {
                                         // this is so I can destructure immutably
                                         // and then call f on the mutable self object
@@ -283,7 +283,7 @@ impl<'a> AbstractTree<'a> {
                         Ok(())
                             .and_then(|_| {
                                 match ats.get(0).unwrap() {
-                                    &Token(TokenType::Symbol, a, _) => {
+                                    &Token(TokenType::Symbol, ref a, _) => {
                                         if a == BLOCK_IDENTIFIER {
                                             Ok(())
                                         } else {
@@ -321,21 +321,21 @@ impl<'a> AbstractTree<'a> {
     // Functions for reading the ast
 
     /// Get an immutable reference to the ith argument of a node.
-    pub fn argument(&self, i: usize) -> &AbstractTree<'a> {
+    pub fn argument(&self, i: usize) -> &AbstractTree {
         self.arguments().get(i).unwrap()
     }
 
     /// Get an immutabe reference to the arguments of a node
     ///
     /// This will panic if called on a Token.
-    pub fn arguments(&self) -> &Vec<AbstractTree<'a>> {
+    pub fn arguments(&self) -> &Vec<AbstractTree> {
         match self {
             &Node(ref ats, _) => return ats,
             _ => panic!("fn arguments called on a Token"),
         }
     }
 
-    pub fn arguments_mut(&mut self) -> &mut Vec<AbstractTree<'a>> {
+    pub fn arguments_mut(&mut self) -> &mut Vec<AbstractTree> {
         match self {
             &mut Node(ref mut ats, _) => return ats,
             _ => panic!("fn arguments called on a Token"),
@@ -345,15 +345,15 @@ impl<'a> AbstractTree<'a> {
     /// Get the 'name' of a Node - defined to be the
     /// string of the first token if the abstract tree is
     /// a node and has a first token.
-    pub fn name(&self) -> &str {
+    pub fn name<'a>(&'a self) -> &'a String {
         match self {
             &Node(ref ats, _) => {
                 match ats.get(0) {
-                    Some(&Token(TokenType::Symbol, a, _)) => a,
-                    _ => "unknown",
+                    Some(&Token(TokenType::Symbol, ref a, _)) => a,
+                    _ => panic!("cannot access the name of just any node"),
                 }
             }
-            &Token(_, data, _) => data,
+            &Token(_, ref data, _) => data,
         }
     }
 

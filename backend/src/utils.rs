@@ -73,26 +73,26 @@ pub mod tests {
     use utils::Position;
     use utils::Result;
 
-    pub fn generate_data<'a>() -> AbstractTree<'a> {
+    pub fn generate_data() -> AbstractTree {
         Node(vec![
             Node(vec![
-                 Token(Symbol, "foo", Position(0,0)),
-                 Token(Int, "2", Position(0,0)),
-                 Token(Int, "2", Position(0,0)),
+                 Token(Symbol, "foo".to_string(), Position(0,0)),
+                 Token(Int, "2".to_string(), Position(0,0)),
+                 Token(Int, "2".to_string(), Position(0,0)),
                  Node(vec![
-                        Token(Symbol, "foo", Position(0,0)),
-                        Token(Symbol, "foo", Position(0,0)),
+                        Token(Symbol, "foo".to_string(), Position(0,0)),
+                        Token(Symbol, "foo".to_string(), Position(0,0)),
                 ], Position(0, 2)),
             ], Position(0, 2)),
             Node(vec![
-                 Token(Symbol, "define", Position(0,0)),
-                 Token(Int, "2", Position(0,0))
+                 Token(Symbol, "define".to_string(), Position(0,0)),
+                 Token(Int, "2".to_string(), Position(0,0))
             ], Position(0, 2)),
         ],
              Position(0, 2))
     }
 
-    pub fn abstract_tree_item<'a>(at: Vec<AbstractTree<'a>>) -> AbstractTree {
+    pub fn abstract_tree_item<'a>(at: Vec<AbstractTree>) -> AbstractTree {
         Node(vec![Node(at, Position(0, 0))], Position(0, 0))
     }
 

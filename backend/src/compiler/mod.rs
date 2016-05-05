@@ -55,14 +55,14 @@ fn compile_define(backend: &mut QBEBackend, tree: &mut AbstractTree) -> Result<I
 
 /// compile takes an abstract tree and compiles it - eventually
 /// down to IR
-pub fn compile<'a>(mut at: AbstractTree<'a>) -> Result<IR> {
+pub fn compile<'a>(mut at: AbstractTree) -> Result<IR> {
     Ok(())
         .and_then(|_| at.match_symbol("define", check_define))
         .and_then(|_| at.assert_only_top_level("define"))
         .and_then(|_| {
             // compilation stage
             QBEBackend::new(at)
-                .handle("define", compile_define)
+                .handle("define".to_string(), compile_define)
                 .compile()
         })
 }
@@ -76,10 +76,10 @@ mod tests {
     use utils::Position;
     use super::compile;
 
-    fn construct_define_item<'a>(items: Vec<AbstractTree<'a>>) -> AbstractTree<'a> {
+    fn construct_define_item<'a>(items: Vec<AbstractTree>) -> AbstractTree {
         abstract_tree_item(vec![
-            Token(Symbol, "define", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
+            Token(Symbol, "define".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
             Node(items, Position(0, 0)),
         ])
     }
@@ -88,25 +88,25 @@ mod tests {
     fn test_define_constraints() {
         // Test argument constraint
         let at = abstract_tree_item(vec![
-            Token(Symbol, "define", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
+            Token(Symbol, "define".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
         ]);
         assert_returns_error(compile(at), "define takes 2 arguments");
 
         // Test need for block constraint
         let at = abstract_tree_item(vec![
-            Token(Symbol, "define", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
+            Token(Symbol, "define".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
         ]);
         assert_returns_error(compile(at), "define expects a block for its 2th argument");
 
         // Test top level constraint
         let at = construct_define_item(vec![
-                Token(Symbol, "block", Position(0,0)),
+                Token(Symbol, "block".to_string(), Position(0,0)),
                 Node(vec![], Position(0,0)),
                 Node(vec![construct_define_item(vec![
-                    Token(Symbol, "block", Position(0,0)),
+                    Token(Symbol, "block".to_string(), Position(0,0)),
                     Node(vec![], Position(0,0)),
                     Node(vec![], Position(0,0)),
                 ])], Position(0,0)),
@@ -118,22 +118,22 @@ mod tests {
     #[test]
     fn test_block_constraints() {
         let at = construct_define_item(vec![
-            Token(Symbol, "block", Position(0,0)),
+            Token(Symbol, "block".to_string(), Position(0,0)),
         ]);
         assert_returns_error(compile(at), "block takes at least 1 arguments");
 
         let at = construct_define_item(vec![
-            Token(Symbol, "block", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
-            Token(Int, "2", Position(0,0)),
+            Token(Symbol, "block".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
         ]);
         assert_returns_error(compile(at),
                              "a block takes a list of arguments followed by a list of expressions");
 
         let at = construct_define_item(vec![
-            Token(Symbol, "block", Position(0,0)),
-            Node(vec![Token(Int, "2", Position(0,0))], Position(0,0)),
-            Node(vec![Token(Int, "2", Position(0,0))], Position(0,0)),
+            Token(Symbol, "block".to_string(), Position(0,0)),
+            Token(Int, "2".to_string(), Position(0,0)),
+            Node(vec![Token(Int, "2".to_string(), Position(0,0))], Position(0,0)),
         ]);
         compile(at).ok().unwrap();
     }
