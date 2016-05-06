@@ -25,7 +25,7 @@ mod utils {
 /// string representation.
 ///
 /// A `Symbol` type is the most basic - representing an ident of the language.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TokenType {
     Flag, // Used internally - should not be encountered by outside people.
     Symbol,
@@ -165,7 +165,7 @@ impl QBEBackend {
 /// trees, whereas tokens have a TokenType and a string
 /// representation. All AbstractTree's have a position
 /// that is used for reporting errors.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum AbstractTree {
     Node(Vec<AbstractTree>, Position),
     Token(TokenType, String, Position),

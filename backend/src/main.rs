@@ -12,7 +12,7 @@ use utils::ErrorHandling;
 use parser::parse;
 
 fn main() {
-    println!("{:?}", parse("(hi there)").unwrap());
+    println!("{:?}", parse("(hi (nice person) !)").unwrap());
 }
 
 fn main2() {

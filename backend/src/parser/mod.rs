@@ -106,9 +106,9 @@ fn close_paren(parser: &mut Parser) -> Option<AbstractTree> {
 }
 
 fn open_paren(parser: &mut Parser) -> Option<AbstractTree> {
+    let starting_position = parser.position.clone();
     parser.advance_char();
     let mut accumulator = vec![];
-    let starting_position = parser.position.clone();
     loop {
         let expression = parser.parse_expression();
         match expression {
@@ -135,4 +135,35 @@ pub fn parse(string: &str) -> Option<AbstractTree> {
         .read_as(')', close_paren)
         .read_as('(', open_paren)
         .parse_expression()
+}
+
+#[cfg(test)]
+mod tests {
+    use parser::parse;
+    use compiler::abstract_tree::AbstractTree::*;
+    use compiler::abstract_tree::TokenType::*;
+    use utils::Position;
+
+    #[test]
+    fn test_parse_symbol() {
+        assert_eq!(
+            parse("symbol").unwrap(),
+            Token(Symbol, "symbol".to_string(), Position(0,0))
+        )
+    }
+
+    #[test]
+    fn test_parse_parentheses() {
+        assert_eq!(
+            parse("(hi there)").unwrap(),
+            Node(vec![Token(Symbol, "hi".to_string(), Position(0,1)), Token(Symbol, "there".to_string(), Position(0,4))], Position(0,0))
+        );
+
+        // Try with two levels
+        assert_eq!(
+            parse("(hi (one) there)").unwrap(),
+            Node(vec![Token(Symbol, "hi".to_string(), Position(0,1)), Node(vec![Token(Symbol, "one".to_string(), Position(0,5))], Position(0,4)), Token(Symbol, "there".to_string(), Position(0, 10))], Position(0,0))
+        );
+    }
+
 }
