@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 use std::str::Chars;
-use utils::Position;
+use utils::{Result, err_position, Position};
 use super::compiler::abstract_tree::{AbstractTree, TokenType};
 
 
 struct Parser<'a> {
-    table: HashMap<char, fn(&mut Parser) -> Option<AbstractTree>>,
+    table: HashMap<char, fn(&mut Parser) -> Result<Option<AbstractTree>>>,
     stream: Peekable<Chars<'a>>,
     position: Position,
 }
@@ -45,17 +45,17 @@ impl<'a> Parser<'a> {
         self.current_char().is_none()
     }
 
-    fn read_as(mut self, key: char, f: fn(&mut Parser) -> Option<AbstractTree>) -> Parser<'a> {
+    fn read_as(mut self, key: char, f: fn(&mut Parser) -> Result<Option<AbstractTree>>) -> Parser<'a> {
         self.table.insert(key, f);
         self
     }
 
-    fn parse_expression(&mut self) -> Option<AbstractTree> {
+    fn parse_expression(&mut self) -> Result<Option<AbstractTree>> {
         let current_reader = self.current_reader().unwrap_or(Parser::default_parse);
         current_reader(self)
     }
 
-    fn current_reader(&mut self) -> Option<fn(&mut Parser) -> Option<AbstractTree>> {
+    fn current_reader(&mut self) -> Option<fn(&mut Parser) -> Result<Option<AbstractTree>>> {
         if self.current_char().is_none() {
             return None;
         }
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
         self.stream.peek()
     }
 
-    fn default_parse<'b>(parser: &mut Parser) -> Option<AbstractTree> {
+    fn default_parse<'b>(parser: &mut Parser) -> Result<Option<AbstractTree>> {
         let mut chars = String::new();
         let starting_position = parser.position.clone();
 
@@ -89,47 +89,47 @@ impl<'a> Parser<'a> {
             }
         }
         if chars.len() == 0 {
-            return None;
+            return Ok(None);
         }
-        Some(AbstractTree::Token(TokenType::Symbol, chars, starting_position))
+        Ok(Some(AbstractTree::Token(TokenType::Symbol, chars, starting_position)))
     }
 }
 
-fn no_op(parser: &mut Parser) -> Option<AbstractTree> {
+fn no_op(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    None
+    Ok(None)
 }
 
-fn close_paren(parser: &mut Parser) -> Option<AbstractTree> {
+fn close_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    Some(AbstractTree::Token(TokenType::Flag, "close paren".to_string(), Position(0, 0)))
+    Ok(Some(AbstractTree::Token(TokenType::Flag, "close paren".to_string(), Position(0, 0))))
 }
 
-fn open_paren(parser: &mut Parser) -> Option<AbstractTree> {
+fn open_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     let starting_position = parser.position.clone();
     parser.advance_char();
     let mut accumulator = vec![];
     loop {
         let expression = parser.parse_expression();
         match expression {
-            Some(AbstractTree::Token(TokenType::Flag, s, _)) => {
+            Ok(Some(AbstractTree::Token(TokenType::Flag, s, _))) => {
                 if s == "close paren".to_string() {
                     break;
                 }
             }
-            Some(a) => accumulator.push(a),
-            // TODO: Wrap all this in real error handling, I mean come on.
-            None => {
+            Ok(Some(a)) => accumulator.push(a),
+            Ok(None) => {
                 if parser.at_eof() {
-                    panic!("hit end of file while reading open paren")
-                } // otherwise continue onwards - just hit a space.
+                    return err_position(starting_position, "hit end of file while reading an open paren".to_string())
+                }
             }
+            error @ Err(_) => return error,
         }
     }
-    Some(AbstractTree::Node(accumulator, starting_position))
+    Ok(Some(AbstractTree::Node(accumulator, starting_position)))
 }
 
-pub fn parse(string: &str) -> Option<AbstractTree> {
+pub fn parse(string: &str) -> Result<Option<AbstractTree>> {
     Parser::new(string)
         .read_as(' ', no_op)
         .read_as(')', close_paren)
@@ -142,12 +142,12 @@ mod tests {
     use parser::parse;
     use compiler::abstract_tree::AbstractTree::*;
     use compiler::abstract_tree::TokenType::*;
-    use utils::Position;
+    use utils::{err_position, Position, Error};
 
     #[test]
     fn test_parse_symbol() {
         assert_eq!(
-            parse("symbol").unwrap(),
+            parse("symbol").unwrap().unwrap(),
             Token(Symbol, "symbol".to_string(), Position(0,0))
         )
     }
@@ -155,15 +155,24 @@ mod tests {
     #[test]
     fn test_parse_parentheses() {
         assert_eq!(
-            parse("(hi there)").unwrap(),
+            parse("(hi there)").unwrap().unwrap(),
             Node(vec![Token(Symbol, "hi".to_string(), Position(0,1)), Token(Symbol, "there".to_string(), Position(0,4))], Position(0,0))
         );
 
         // Try with two levels
         assert_eq!(
-            parse("(hi (one) there)").unwrap(),
+            parse("(hi (one) there)").unwrap().unwrap(),
             Node(vec![Token(Symbol, "hi".to_string(), Position(0,1)), Node(vec![Token(Symbol, "one".to_string(), Position(0,5))], Position(0,4)), Token(Symbol, "there".to_string(), Position(0, 10))], Position(0,0))
         );
     }
 
+    #[test]
+    fn test_fail_parse_parentheses() {
+        match parse("(hi there") {
+            Ok(_) => panic!("I'm assertng this should not parse correctly"),
+            Err(Error { description: description, position: _ }) => {
+                assert_eq!("hit end of file while reading an open paren".to_string(), description);
+            }
+        }
+    }
 }
