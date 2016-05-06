@@ -93,6 +93,7 @@ impl<'a> Parser<'a> {
         }
         Ok(Some(AbstractTree::Token(TokenType::Symbol, chars, starting_position)))
     }
+
 }
 
 fn no_op(parser: &mut Parser) -> Result<Option<AbstractTree>> {
@@ -100,9 +101,16 @@ fn no_op(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     Ok(None)
 }
 
+
+// consolidate these into one function.
 fn close_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    Ok(Some(AbstractTree::Token(TokenType::Flag, "close paren".to_string(), Position(0, 0))))
+    Ok(Some(AbstractTree::Token(TokenType::Flag, ")".to_string(), Position(0, 0))))
+}
+
+fn close_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
+    parser.advance_char();
+    Ok(Some(AbstractTree::Token(TokenType::Flag, "}".to_string(), Position(0, 0))))
 }
 
 fn open_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
@@ -112,9 +120,15 @@ fn open_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     loop {
         let expression = parser.parse_expression();
         match expression {
-            Ok(Some(AbstractTree::Token(TokenType::Flag, s, _))) => {
-                if s == "close paren".to_string() {
+            Ok(Some(AbstractTree::Token(TokenType::Flag, s, p))) => {
+                if s == ")".to_string() {
                     break;
+                } else {
+                    // this way I can ensure ( } doesnt happen
+                    return err_position(starting_position,
+                                        format!("encountered incorrect flag {},\
+                                                at position {:?}, while reading an \
+                                                open paren", s, p))
                 }
             }
             Ok(Some(a)) => accumulator.push(a),
@@ -134,6 +148,8 @@ pub fn parse(string: &str) -> Result<Option<AbstractTree>> {
         .read_as(' ', no_op)
         .read_as(')', close_paren)
         .read_as('(', open_paren)
+        .read_as('}', close_curly)
+        // .read_as('{', open_curly)
         .parse_expression()
 }
 
