@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use utils::{Result, Position, IR, err_position};
 use self::AbstractTree::*;
 
-static BLOCK_IDENTIFIER: &'static str = "block";
+pub static BLOCK_IDENTIFIER: &'static str = "block";
 
 mod utils {
     pub fn generate_function_arguments(i: usize) -> String {
@@ -364,7 +364,7 @@ impl AbstractTree {
     /// both a Node and a Token have it, but
     /// accessing it requires deconstructing
     /// which is why this method is useful.
-    fn position(&self) -> Position {
+    pub fn position(&self) -> Position {
         match self {
             &Node(_, ref position) => position.clone(),
             &Token(_, _, ref position) => position.clone(),
