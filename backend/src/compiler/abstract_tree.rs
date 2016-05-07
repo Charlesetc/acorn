@@ -10,7 +10,7 @@ pub static BLOCK_IDENTIFIER: &'static str = "block";
 mod utils {
     pub fn generate_function_arguments(i: usize) -> String {
         let mut output = "(".to_string();
-        for x in 0..i {
+        for x in 0..(i-1) {
             output.push_str(&format!("l arg{}, ", x));
         }
         output.push_str(")");
@@ -95,8 +95,8 @@ impl QBEBackend {
                             let mut ir = iterator.fold(Ok(vec![]), |acc, argument| {
                                 acc.and_then(|mut vector| {
                                     self.compile_inner(argument).and_then(|mut argument_ir| {
-                                        i += 1;
                                         argument_ir.push(format!("%arg{} =l %ret", i));
+                                        i += 1;
                                         vector.append(&mut argument_ir);
                                         Ok(vector)
                                     })
@@ -130,9 +130,10 @@ impl QBEBackend {
 
     pub fn compile_token(&mut self, tree: &mut AbstractTree) -> Result<IR> {
         match tree {
-            &mut Token(TokenType::Symbol, _, ref position) => {
-                err_position(position.clone(),
-                             "variables are not yet implemented".to_string())
+            &mut Token(TokenType::Symbol, ref name, _) => {
+                // right now, a single symbol is a function call
+                // with no argumnts. This will change with contexts.
+                Ok(vec![format!("%ret =l call ${}()", name)])
             }
             &mut Token(TokenType::Int, ref integer_literal, _) => {
                 Ok(vec![format!("%ret =l {}", integer_literal)])

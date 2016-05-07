@@ -42,10 +42,7 @@ impl<'a, T> ErrorHandling<T> for Result<T> {
     fn unpack_error(self) -> T {
         let mut stderr = &mut io::stderr();
         match self {
-            Ok(a) => {
-                writeln!(stderr, "compilation successful").unwrap();
-                a
-            }
+            Ok(a) => a,
             Err(ref error) => {
                 writeln!(stderr, "compilation error:").unwrap();
                 writeln!(stderr,

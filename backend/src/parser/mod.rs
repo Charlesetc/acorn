@@ -16,8 +16,6 @@ struct Parser<'a> {
     table: HashMap<char, fn(&mut Parser) -> Result<Option<AbstractTree>>>,
     stream: Peekable<Chars<'a>>,
     position: Position,
-    top_level: bool,
-
     last_char: Option<char>, // this is helpful for parsing blocks
 }
 
@@ -27,8 +25,6 @@ impl<'a> Parser<'a> {
             table: HashMap::new(),
             stream: string.chars().peekable(),
             position: Position(0, 0),
-            top_level: true,
-
             last_char: None,
         }
     }
@@ -214,7 +210,7 @@ macro_rules! define_aggregate_parser {
             loop {
                 let expression = try!($inner_parser(parser));
                 match expression {
-                    Some(AbstractTree::Token(_, s, p)) => {
+                    Some(AbstractTree::Token(_, _, _)) => {
                         panic!("tokens shouldn't be returned by
                                the inner parser of an aggregate parser");
                     }
@@ -254,19 +250,9 @@ define_expression_parser! { parse_whole_expression
 
 // this is used for the first expression within a block - it parses differently
 // depending on whether or not it terminates with a '}' or a '\n'
-define_expression_parser! { parse_whole_expression_block_starting
-    name: "expressions of a block",
-    close: "}\n", // either one of these will work
-    advance: false,
-    top_level: true,
-    ignore_newlines: false,
-}
-
-// this is used for parsing expressions within a block, i.e.
-// anything within the { } after the first expression.
 define_expression_parser! { parse_whole_expression_block
     name: "expressions of a block",
-    close: "}",
+    close: "}\n", // either one of these will work
     advance: false,
     top_level: true,
     ignore_newlines: false,
@@ -277,17 +263,17 @@ define_aggregate_parser! { complete_parse
 }
 
 define_aggregate_parser! { complete_parse_block
-    parser: parse_whole_expression_block_starting,
+    parser: parse_whole_expression_block,
 }
 
 
 fn open_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     let starting_position = parser.position.clone();
     parser.advance_char();
-    let mut expression = try!(parse_whole_expression_block_starting(parser));
+    let mut expression = try!(parse_whole_expression_block(parser));
     loop {
         match expression {
-            Some(AbstractTree::Token(_, s, p)) => {
+            Some(AbstractTree::Token(_, _, _)) => {
                 panic!("inner parser to an aggregater should not return tokens")
             }
             Some(_) => {
@@ -306,7 +292,7 @@ fn open_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
                     expression = Some(AbstractTree::Node(vec![], Position(0, 0)));
                     break;
                 } else {
-                    expression = try!(parse_whole_expression_block_starting(parser));
+                    expression = try!(parse_whole_expression_block(parser));
                 }
             }
         }
@@ -315,7 +301,7 @@ fn open_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
         return err_position(starting_position,
                             format!("hit end of file while reading a block"));
     } else if parser.last_char == Some('\n') {
-        let mut expression = expression.unwrap();
+        let expression = expression.unwrap();
         let position = expression.position();
 
 
@@ -330,7 +316,7 @@ fn open_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
         let mut block = try!(complete_parse_block(parser));
         loop {
             match block {
-                Some(AbstractTree::Token(_, s, p)) => {
+                Some(AbstractTree::Token(_, _, _)) => {
                     panic!("inner parser to an aggregater should not return tokens")
                 }
                 Some(a) => {
@@ -484,17 +470,18 @@ mod tests {
     fn test_parses_block_complete() {
         assert_parses!("map { a\ntimes a 2\nreturn 4\n\n}",
                        Node(vec![Token(Symbol, "map".to_string(), Position(0, 0)),
-                           Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
-                                        Token(Symbol, "a".to_string(), Position(0, 6)),
+                                 Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
+                                           Token(Symbol, "a".to_string(), Position(0, 6)),
                                            Node(vec![
-                                                Node(vec![Token(Symbol, "times".to_string(), Position(1, 0)),
-                                                          Token(Symbol, "a".to_string(), Position(1, 6)),
-                                                          Token(Symbol, "2".to_string(), Position(1, 8)),
-                                                ], Position(1, 0)),
-                                                Node(vec![Token(Symbol, "return".to_string(), Position(2, 0)),
-                                                          Token(Symbol, "4".to_string(), Position(2, 7)),
-                                                ], Position(2, 0)),
-                                          ], Position(1, 0))],
+                                    Node(vec![Token(Symbol, "times".to_string(), Position(1, 0)),
+                                              Token(Symbol, "a".to_string(), Position(1, 6)),
+                                              Token(Symbol, "2".to_string(), Position(1, 8)),
+                                    ], Position(1, 0)),
+                                    Node(vec![Token(Symbol, "return".to_string(), Position(2, 0)),
+                                              Token(Symbol, "4".to_string(), Position(2, 7)),
+                                    ], Position(2, 0)),
+                              ],
+                                                Position(1, 0))],
                                       Position(0, 5))],
                             Position(0, 0)))
     }
