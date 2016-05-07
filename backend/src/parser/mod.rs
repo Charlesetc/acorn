@@ -45,7 +45,10 @@ impl<'a> Parser<'a> {
         self.current_char().is_none()
     }
 
-    fn read_as(mut self, key: char, f: fn(&mut Parser) -> Result<Option<AbstractTree>>) -> Parser<'a> {
+    fn read_as(mut self,
+               key: char,
+               f: fn(&mut Parser) -> Result<Option<AbstractTree>>)
+               -> Parser<'a> {
         self.table.insert(key, f);
         self
     }
@@ -75,7 +78,7 @@ impl<'a> Parser<'a> {
             // if parser.at_eof() { break; } // I don't think this is necessary
             let current_reader = parser.current_reader();
             match current_reader {
-                Some(f) => {
+                Some(_) => {
                     break;
                 }
                 None => {
@@ -94,6 +97,32 @@ impl<'a> Parser<'a> {
         Ok(Some(AbstractTree::Token(TokenType::Symbol, chars, starting_position)))
     }
 
+    fn parse_complete(&mut self) -> Result<Option<AbstractTree>> {
+        let starting_position = self.position.clone();
+        let mut accumulator = vec![];
+        loop {
+            let expression = top_level_expression(self);
+            match expression {
+                Ok(Some(AbstractTree::Token(TokenType::Flag, s, p))) => {
+                    // this way I can ensure ( } doesnt happen
+                    return err_position(starting_position,
+                                        format!("encountered incorrect flag {},\
+                                                at position {:?}, while reading an \
+                                                the top level",
+                                                s,
+                                                p));
+                }
+                Ok(Some(a)) => accumulator.push(a),
+                Ok(None) => {
+                    if self.at_eof() {
+                        break;
+                    }
+                }
+                error @ Err(_) => return error,
+            }
+        }
+        Ok(Some(AbstractTree::Node(accumulator, starting_position)))
+    }
 }
 
 fn no_op(parser: &mut Parser) -> Result<Option<AbstractTree>> {
@@ -113,44 +142,88 @@ fn close_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     Ok(Some(AbstractTree::Token(TokenType::Flag, "}".to_string(), Position(0, 0))))
 }
 
-fn open_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
-    let starting_position = parser.position.clone();
+fn newline(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    let mut accumulator = vec![];
-    loop {
-        let expression = parser.parse_expression();
-        match expression {
-            Ok(Some(AbstractTree::Token(TokenType::Flag, s, p))) => {
-                if s == ")".to_string() {
-                    break;
-                } else {
-                    // this way I can ensure ( } doesnt happen
-                    return err_position(starting_position,
-                                        format!("encountered incorrect flag {},\
-                                                at position {:?}, while reading an \
-                                                open paren", s, p))
-                }
-            }
-            Ok(Some(a)) => accumulator.push(a),
-            Ok(None) => {
-                if parser.at_eof() {
-                    return err_position(starting_position, "hit end of file while reading an open paren".to_string())
-                }
-            }
-            error @ Err(_) => return error,
-        }
-    }
-    Ok(Some(AbstractTree::Node(accumulator, starting_position)))
+    Ok(Some(AbstractTree::Token(TokenType::Flag, "\n".to_string(), Position(0, 0))))
 }
+
+macro_rules! define_expression_parser {
+    (
+        $a: ident
+        name: $name: expr,
+        close: $close: expr,
+        advance: $should_advance: expr,
+        top_level: $top_level: expr
+    ) => {
+
+        fn $a(parser: &mut Parser) -> Result<Option<AbstractTree>> {
+            let starting_position = parser.position.clone();
+            if $should_advance {
+                parser.advance_char();
+            }
+            let mut accumulator = vec![];
+            loop {
+                let expression = parser.parse_expression();
+                match expression {
+                    Ok(Some(AbstractTree::Token(TokenType::Flag, s, p))) => {
+                        if s == $close.to_string() {
+                            break;
+                        } else {
+                            // this way I can ensure ( } doesnt happen
+                            return err_position(starting_position,
+                                                format!("encountered incorrect flag {},\
+                                                        at position {:?}, while reading an \
+                                                        {}", s, p, $name))
+                        }
+                    }
+                    Ok(Some(a)) => accumulator.push(a),
+                    Ok(None) => {
+                        if parser.at_eof() {
+                            if $top_level { break; }
+
+                            return err_position(starting_position,
+                                                format!("hit end of file \
+                                                        while reading an {}", $name))
+                        }
+                    }
+                    error @ Err(_) => return error,
+                }
+            }
+
+            if accumulator.is_empty() { // This might be a bug // && parser.at_eof() {
+                return Ok(None)
+            }
+
+            Ok(Some(AbstractTree::Node(accumulator, starting_position)))
+        }
+
+    }
+}
+
+define_expression_parser! { open_paren
+    name: "open paren",
+    close: ")",
+    advance: true,
+    top_level: false
+}
+
+define_expression_parser! { top_level_expression
+    name: "top level expression",
+    close: "\n",
+    advance: false,
+    top_level: true
+}
+
 
 pub fn parse(string: &str) -> Result<Option<AbstractTree>> {
     Parser::new(string)
+        .read_as('\n', newline)
         .read_as(' ', no_op)
         .read_as(')', close_paren)
         .read_as('(', open_paren)
         .read_as('}', close_curly)
         // .read_as('{', open_curly)
-        .parse_expression()
+        .parse_complete()
 }
 
 #[cfg(test)]
@@ -158,37 +231,73 @@ mod tests {
     use parser::parse;
     use compiler::abstract_tree::AbstractTree::*;
     use compiler::abstract_tree::TokenType::*;
-    use utils::{err_position, Position, Error};
+    use utils::{Position, Error};
 
     #[test]
     fn test_parse_symbol() {
-        assert_eq!(
-            parse("symbol").unwrap().unwrap(),
-            Token(Symbol, "symbol".to_string(), Position(0,0))
-        )
+        assert_eq!(parse("symbol").unwrap().unwrap(),
+                   Node(vec![Node(vec![Token(Symbol, "symbol".to_string(), Position(0, 0))],
+                                  Position(0, 0))],
+                        Position(0, 0)))
     }
 
     #[test]
     fn test_parse_parentheses() {
-        assert_eq!(
-            parse("(hi there)").unwrap().unwrap(),
-            Node(vec![Token(Symbol, "hi".to_string(), Position(0,1)), Token(Symbol, "there".to_string(), Position(0,4))], Position(0,0))
-        );
+        assert_eq!(parse("(hi there)").unwrap().unwrap(),
+                   Node(vec![Node(vec![Node(vec![Token(Symbol,
+                                                       "hi".to_string(),
+                                                       Position(0, 1)),
+                                                 Token(Symbol,
+                                                       "there".to_string(),
+                                                       Position(0, 4))],
+                                            Position(0, 0))],
+                                  Position(0, 0))],
+                        Position(0, 0)));
 
         // Try with two levels
-        assert_eq!(
-            parse("(hi (one) there)").unwrap().unwrap(),
-            Node(vec![Token(Symbol, "hi".to_string(), Position(0,1)), Node(vec![Token(Symbol, "one".to_string(), Position(0,5))], Position(0,4)), Token(Symbol, "there".to_string(), Position(0, 10))], Position(0,0))
-        );
+        assert_eq!(parse("(hi (one) there)").unwrap().unwrap(),
+                   Node(vec![Node(vec![Node(vec![Token(Symbol,
+                                                       "hi".to_string(),
+                                                       Position(0, 1)),
+                                                 Node(vec![Token(Symbol,
+                                                                 "one".to_string(),
+                                                                 Position(0, 5))],
+                                                      Position(0, 4)),
+                                                 Token(Symbol,
+                                                       "there".to_string(),
+                                                       Position(0, 10))],
+                                            Position(0, 0))],
+                                  Position(0, 0))],
+                        Position(0, 0)));
     }
 
     #[test]
     fn test_fail_parse_parentheses() {
         match parse("(hi there") {
             Ok(_) => panic!("I'm assertng this should not parse correctly"),
-            Err(Error { description: description, position: _ }) => {
-                assert_eq!("hit end of file while reading an open paren".to_string(), description);
+            Err(Error { description, position: _ }) => {
+                assert_eq!("hit end of file while reading an open paren".to_string(),
+                           description);
             }
         }
     }
+
+    #[test]
+    fn test_two_lines_of_code() {
+        assert_eq!(parse("hi there\n(one two)").unwrap().unwrap(),
+                   Node(vec![
+                Node(vec![
+                    Token(Symbol, "hi".to_string(), Position(0, 0)),
+                    Token(Symbol, "there".to_string(), Position(0, 3))
+                ], Position(0,0)),
+                Node(vec![
+                    Node(vec![
+                        Token(Symbol, "one".to_string(), Position(1, 1)),
+                        Token(Symbol, "two".to_string(), Position(1, 5))
+                    ], Position(1,0)),
+                ], Position(1,0)),
+            ],
+                        Position(0, 0)));
+    }
+
 }
