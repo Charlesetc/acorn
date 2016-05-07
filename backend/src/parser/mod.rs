@@ -123,6 +123,16 @@ impl<'a> Parser<'a> {
         }
         Ok(Some(AbstractTree::Node(accumulator, starting_position)))
     }
+
+    // Newline-specific logic - top level only
+    //
+    fn remove_newlines(&mut self) {
+        self.table.insert('\n', no_op);
+    }
+
+    fn add_newlines(&mut self) {
+        self.table.insert('\n', newline);
+    }
 }
 
 fn no_op(parser: &mut Parser) -> Result<Option<AbstractTree>> {
@@ -134,17 +144,17 @@ fn no_op(parser: &mut Parser) -> Result<Option<AbstractTree>> {
 // consolidate these into one function.
 fn close_paren(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    Ok(Some(AbstractTree::Token(TokenType::Flag, ")".to_string(), Position(0, 0))))
+    Ok(Some(AbstractTree::Token(TokenType::Flag, ")".to_string(), parser.position.clone())))
 }
 
 fn close_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    Ok(Some(AbstractTree::Token(TokenType::Flag, "}".to_string(), Position(0, 0))))
+    Ok(Some(AbstractTree::Token(TokenType::Flag, "}".to_string(), parser.position.clone())))
 }
 
 fn newline(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     parser.advance_char();
-    Ok(Some(AbstractTree::Token(TokenType::Flag, "\n".to_string(), Position(0, 0))))
+    Ok(Some(AbstractTree::Token(TokenType::Flag, "\n".to_string(), parser.position.clone())))
 }
 
 macro_rules! define_expression_parser {
@@ -153,7 +163,8 @@ macro_rules! define_expression_parser {
         name: $name: expr,
         close: $close: expr,
         advance: $should_advance: expr,
-        top_level: $top_level: expr
+        top_level: $top_level: expr,
+        ignore_newlines: $should_ignore_newlines: expr,
     ) => {
 
         fn $a(parser: &mut Parser) -> Result<Option<AbstractTree>> {
@@ -163,7 +174,13 @@ macro_rules! define_expression_parser {
             }
             let mut accumulator = vec![];
             loop {
+
+                if !$should_ignore_newlines { parser.remove_newlines() }
+
                 let expression = parser.parse_expression();
+
+                if !$should_ignore_newlines { parser.add_newlines() }
+
                 match expression {
                     Ok(Some(AbstractTree::Token(TokenType::Flag, s, p))) => {
                         if s == $close.to_string() {
@@ -204,14 +221,16 @@ define_expression_parser! { open_paren
     name: "open paren",
     close: ")",
     advance: true,
-    top_level: false
+    top_level: false,
+    ignore_newlines: false,
 }
 
 define_expression_parser! { top_level_expression
     name: "top level expression",
     close: "\n",
     advance: false,
-    top_level: true
+    top_level: true,
+    ignore_newlines: true,
 }
 
 
@@ -233,42 +252,40 @@ mod tests {
     use compiler::abstract_tree::TokenType::*;
     use utils::{Position, Error};
 
+    macro_rules! assert_parses {
+        ( $str: expr, $( $node: expr ),* ) => {
+            assert_eq!(parse($str).unwrap().unwrap(),
+                       Node(vec![
+                            $( $node ),*
+                       ], Position(0,0)))
+        }
+    }
+
     #[test]
     fn test_parse_symbol() {
-        assert_eq!(parse("symbol").unwrap().unwrap(),
-                   Node(vec![Node(vec![Token(Symbol, "symbol".to_string(), Position(0, 0))],
-                                  Position(0, 0))],
-                        Position(0, 0)))
+        assert_parses!("symbol",
+                       Node(vec![Token(Symbol, "symbol".to_string(), Position(0, 0))],
+                            Position(0, 0)));
     }
 
     #[test]
     fn test_parse_parentheses() {
-        assert_eq!(parse("(hi there)").unwrap().unwrap(),
-                   Node(vec![Node(vec![Node(vec![Token(Symbol,
-                                                       "hi".to_string(),
-                                                       Position(0, 1)),
-                                                 Token(Symbol,
-                                                       "there".to_string(),
-                                                       Position(0, 4))],
-                                            Position(0, 0))],
-                                  Position(0, 0))],
-                        Position(0, 0)));
+        assert_parses!("(hi there)",
+                       Node(vec![Node(vec![Token(Symbol, "hi".to_string(), Position(0, 1)),
+                                           Token(Symbol, "there".to_string(), Position(0, 4))],
+                                      Position(0, 0))],
+                            Position(0, 0)));
 
         // Try with two levels
-        assert_eq!(parse("(hi (one) there)").unwrap().unwrap(),
-                   Node(vec![Node(vec![Node(vec![Token(Symbol,
-                                                       "hi".to_string(),
-                                                       Position(0, 1)),
-                                                 Node(vec![Token(Symbol,
-                                                                 "one".to_string(),
-                                                                 Position(0, 5))],
-                                                      Position(0, 4)),
-                                                 Token(Symbol,
-                                                       "there".to_string(),
-                                                       Position(0, 10))],
-                                            Position(0, 0))],
-                                  Position(0, 0))],
-                        Position(0, 0)));
+        assert_parses!("(hi (one) there)",
+                       Node(vec![Node(vec![Token(Symbol, "hi".to_string(), Position(0, 1)),
+                                           Node(vec![Token(Symbol,
+                                                           "one".to_string(),
+                                                           Position(0, 5))],
+                                                Position(0, 4)),
+                                           Token(Symbol, "there".to_string(), Position(0, 10))],
+                                      Position(0, 0))],
+                            Position(0, 0)));
     }
 
     #[test]
@@ -284,20 +301,26 @@ mod tests {
 
     #[test]
     fn test_two_lines_of_code() {
-        assert_eq!(parse("hi there\n(one two)").unwrap().unwrap(),
-                   Node(vec![
-                Node(vec![
-                    Token(Symbol, "hi".to_string(), Position(0, 0)),
-                    Token(Symbol, "there".to_string(), Position(0, 3))
-                ], Position(0,0)),
-                Node(vec![
+        assert_parses!("hi there\n(one two)",
+                       Node(vec![Token(Symbol, "hi".to_string(), Position(0, 0)),
+                                 Token(Symbol, "there".to_string(), Position(0, 3))],
+                            Position(0, 0)),
+                       Node(vec![
                     Node(vec![
                         Token(Symbol, "one".to_string(), Position(1, 1)),
                         Token(Symbol, "two".to_string(), Position(1, 5))
                     ], Position(1,0)),
-                ], Position(1,0)),
-            ],
-                        Position(0, 0)));
+                ],
+                            Position(1, 0)))
+    }
+
+    #[test]
+    fn test_parse_parentheses_with_newline() {
+        assert_parses!("(hi \n\n\nthere)",
+                       Node(vec![Node(vec![Token(Symbol, "hi".to_string(), Position(0, 1)),
+                                           Token(Symbol, "there".to_string(), Position(3, 0))],
+                                      Position(0, 0))],
+                            Position(0, 0)));
     }
 
 }
