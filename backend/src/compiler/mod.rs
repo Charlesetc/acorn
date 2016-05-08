@@ -27,6 +27,10 @@ fn compile_define(backend: &mut QBEBackend, tree: &mut AbstractTree) -> Result<I
     let mut arguments_to_block = block.arguments_mut();
     let mut block_expressions = arguments_to_block.pop().unwrap();
 
+    // get rid of 'block', the first argument to block.
+    let mut arguments_to_block = arguments_to_block.iter_mut();
+    arguments_to_block.next();
+
     let mut function_definition = format!("export function l ${}(", name);
     for argument in arguments_to_block {
         function_definition.push_str(&format!("l {},", argument.name()));

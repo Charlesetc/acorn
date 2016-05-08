@@ -7,7 +7,7 @@ mod parser;
 use utils::ErrorHandling;
 
 fn main() {
-    let source = "good morning";
+    let source = "define start { print_2 }";
     let abstract_tree = parser::parse(source)
                             .unpack_error()
                             .expect("failed to parse anything, weird");
