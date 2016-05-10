@@ -33,18 +33,19 @@ pub enum TokenType {
           * Float, */
 }
 
-pub struct QBEBackend {
+pub struct LLVMBackend {
     pub abstract_tree: Option<AbstractTree>,
-    pub transformations: HashMap<String, fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>>,
+    pub transformations: HashMap<String, fn(&mut LLVMBackend, &mut AbstractTree) -> Result<IR>>,
     global_ir: Option<IR>,
 }
 
-impl QBEBackend {
-    pub fn new(a: AbstractTree) -> QBEBackend {
-        QBEBackend {
+impl LLVMBackend {
+    pub fn new(a: AbstractTree) -> LLVMBackend {
+        LLVMBackend {
             abstract_tree: Some(a),
             transformations: HashMap::new(),
             global_ir: Some(vec![
+                "target datalayout = \"e-m:e-i64:64-f80:128-n8:16:32:64-S128\"".to_string(),
                 "%object = type { i64, i64 }".to_string(),
                 "declare %object @print_number() #0".to_string(),
             ]),
@@ -53,8 +54,8 @@ impl QBEBackend {
 
     pub fn handle(mut self,
                   key: String,
-                  f: fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>)
-                  -> QBEBackend {
+                  f: fn(&mut LLVMBackend, &mut AbstractTree) -> Result<IR>)
+                  -> LLVMBackend {
         self.transformations.insert(key, f);
         self
     }

@@ -4,8 +4,8 @@
 
 Hi! Acorn is a programming language I'm working on.
 
-The compiler is not at all complete, but it's written in Rust and compiles to [QBE IL](http://c9x.me/compile/).
-I'm compiling, but not yet parsing the ast, and then plan on bootstrapping the parser. Finally, my goal is
+The compiler is not at all complete, but it's written in Rust and compiles to [LLVM IR](http://llvm.org/docs/LangRef.html).
+I'm roughly compiling, and roughly parsing the ast. The plan is to bootstrap the parser. Finally, my goal is
 to write a self-hosted interpreter to execute macros and provide decent debugging.
 
 # Features/Bugs

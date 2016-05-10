@@ -2,7 +2,7 @@
 
 pub mod abstract_tree;
 
-use self::abstract_tree::{AbstractTree, QBEBackend};
+use self::abstract_tree::{AbstractTree, LLVMBackend};
 use utils::{Result, IR};
 
 /// check_define ensures the tree passed to it is valid
@@ -14,7 +14,7 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
         .and_then(|_| at.check_argument_block(2))
 }
 
-fn compile_define(backend: &mut QBEBackend, tree: &mut AbstractTree) -> Result<IR> {
+fn compile_define(backend: &mut LLVMBackend, tree: &mut AbstractTree) -> Result<IR> {
 
     let mut arguments_to_define = tree.arguments_mut();
     let mut block = arguments_to_define.pop().unwrap();
@@ -64,7 +64,7 @@ pub fn compile<'a>(mut at: AbstractTree) -> Result<IR> {
         .and_then(|_| at.assert_only_top_level("define"))
         .and_then(|_| {
             // compilation stage
-            QBEBackend::new(at)
+            LLVMBackend::new(at)
                 .handle("define".to_string(), compile_define)
                 .compile()
         })

@@ -25,7 +25,7 @@ pub struct Error {
 
 /// The compiled form of acorn:
 /// each item in the vector should
-/// represent one line of qbe ir.
+/// represent one line of llvm ir.
 pub type IR = Vec<String>;
 
 
