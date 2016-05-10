@@ -15,5 +15,9 @@ link-binary:
 run-binary:
 	./build/a.out
 
+clean:
+	rm -f build/*
+	find . | grep '\.bk$$' | xargs rm -f
+
 test:
 	cargo test

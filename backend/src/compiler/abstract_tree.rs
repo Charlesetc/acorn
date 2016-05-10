@@ -11,7 +11,7 @@ mod utils {
     pub fn generate_function_arguments(i: usize) -> String {
         let mut output = "(".to_string();
         for x in 0..(i-1) {
-            output.push_str(&format!("l arg{}, ", x));
+            output.push_str(&format!("%object arg{}, ", x));
         }
         output.push_str(")");
         output
@@ -36,6 +36,7 @@ pub enum TokenType {
 pub struct QBEBackend {
     pub abstract_tree: Option<AbstractTree>,
     pub transformations: HashMap<String, fn(&mut QBEBackend, &mut AbstractTree) -> Result<IR>>,
+    global_ir: Option<IR>,
 }
 
 impl QBEBackend {
@@ -43,6 +44,10 @@ impl QBEBackend {
         QBEBackend {
             abstract_tree: Some(a),
             transformations: HashMap::new(),
+            global_ir: Some(vec![
+                "%object = type { i64, i64 }".to_string(),
+                "declare %object @print_number() #0".to_string(),
+            ]),
         }
     }
 
@@ -71,7 +76,11 @@ impl QBEBackend {
                 panic!("there should not be a node at the top level OR only call compile on the \
                         top level.")
             }
-        }
+        }.map(|mut ir| {
+            let mut global_ir = self.global_ir.take().unwrap();
+            global_ir.append(&mut ir);
+            global_ir
+        })
     }
 
     pub fn compile_function_call(&mut self, tree: &mut AbstractTree) -> Result<IR> {
@@ -95,7 +104,7 @@ impl QBEBackend {
                             let mut ir = iterator.fold(Ok(vec![]), |acc, argument| {
                                 acc.and_then(|mut vector| {
                                     self.compile_inner(argument).and_then(|mut argument_ir| {
-                                        argument_ir.push(format!("%arg{} =l %ret", i));
+                                        argument_ir.push(format!("%object %arg{} = %ret", i));
                                         i += 1;
                                         vector.append(&mut argument_ir);
                                         Ok(vector)
@@ -106,7 +115,7 @@ impl QBEBackend {
                             let argument_names = self::utils::generate_function_arguments(length);
                             ir.iter_mut()
                               .map(|inner| {
-                                  inner.push(format!("%ret =l call ${} {}",
+                                  inner.push(format!("%ret = call %object @{}{}",
                                                      fuction_name,
                                                      argument_names))
                               })
@@ -133,7 +142,7 @@ impl QBEBackend {
             &mut Token(TokenType::Symbol, ref name, _) => {
                 // right now, a single symbol is a function call
                 // with no argumnts. This will change with contexts.
-                Ok(vec![format!("%ret =l call ${}()", name)])
+                Ok(vec![format!("%ret = call %object @{}()", name)])
             }
             &mut Token(TokenType::Int, ref integer_literal, _) => {
                 Ok(vec![format!("%ret =l {}", integer_literal)])

@@ -103,7 +103,12 @@ impl<'a> Parser<'a> {
         if chars.len() == 0 {
             return Ok(None);
         }
-        Ok(Some(AbstractTree::Token(TokenType::Symbol, chars, starting_position)))
+        let token_type = if chars.chars().next().unwrap().is_digit(1) {
+            TokenType::Int
+        } else {
+            TokenType::Symbol
+        };
+        Ok(Some(AbstractTree::Token(token_type, chars, starting_position)))
     }
 
     // Newline-specific logic - top level only
