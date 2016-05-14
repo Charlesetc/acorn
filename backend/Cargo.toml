@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Charles Chamberlain <charlespipin@gmail.com>"]
 
 [dependencies]
+puts = "0.1.2"

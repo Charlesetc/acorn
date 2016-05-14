@@ -1,5 +1,8 @@
 // main.rs
 
+#[macro_use(puts)]
+extern crate puts;
+
 mod compiler;
 mod utils;
 mod parser;
