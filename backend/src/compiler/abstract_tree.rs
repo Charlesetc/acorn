@@ -364,7 +364,9 @@ impl AbstractTree {
             &Node(ref ats, _) => {
                 match ats.get(0) {
                     Some(&Token(TokenType::Symbol, ref a, _)) => a,
-                    _ => panic!("cannot access the name of just any node"),
+                    _ => {
+                        panic!("cannot access the name of just any node");
+                    }
                 }
             }
             &Token(_, ref data, _) => data,

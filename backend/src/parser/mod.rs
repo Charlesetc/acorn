@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
         if chars.len() == 0 {
             return Ok(None);
         }
-        let token_type = if chars.chars().next().unwrap().is_digit(1) {
+        let token_type = if chars.chars().next().unwrap().is_digit(10) {
             TokenType::Int
         } else {
             TokenType::Symbol
@@ -480,10 +480,10 @@ mod tests {
                                            Node(vec![
                                     Node(vec![Token(Symbol, "times".to_string(), Position(1, 0)),
                                               Token(Symbol, "a".to_string(), Position(1, 6)),
-                                              Token(Symbol, "2".to_string(), Position(1, 8)),
+                                              Token(Int, "2".to_string(), Position(1, 8)),
                                     ], Position(1, 0)),
                                     Node(vec![Token(Symbol, "return".to_string(), Position(2, 0)),
-                                              Token(Symbol, "4".to_string(), Position(2, 7)),
+                                              Token(Int, "4".to_string(), Position(2, 7)),
                                     ], Position(2, 0)),
                               ],
                                                 Position(1, 0))],
