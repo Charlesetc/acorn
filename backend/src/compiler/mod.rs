@@ -15,6 +15,7 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
 }
 
 fn compile_define(backend: &mut LLVMBackend, tree: &mut AbstractTree) -> Result<IR> {
+    backend.start_stack();
 
     let mut arguments_to_define = tree.arguments_mut();
     let mut block = arguments_to_define.pop().unwrap();
@@ -39,21 +40,24 @@ fn compile_define(backend: &mut LLVMBackend, tree: &mut AbstractTree) -> Result<
 
     let ir = vec![function_definition];
 
-    block_expressions.arguments_mut()
-                     .iter_mut()
-                     .fold(Ok(ir), |acc, expression| {
-                         acc.and_then(|mut ir| {
-                             backend.compile_inner(expression).and_then(|mut new_ir| {
-                                 ir.append(&mut new_ir);
-                                 Ok(ir)
-                             })
-                         })
-                     })
-                     .and_then(|mut ir| {
-                         ir.push("ret %object %ret".to_string());
-                         ir.push("}".to_string());
-                         Ok(ir)
-                     })
+    let ir_result = block_expressions.arguments_mut()
+                                     .iter_mut()
+                                     .fold(Ok(ir), |acc, expression| {
+                                         acc.and_then(|mut ir| {
+                                             backend.compile_inner(expression)
+                                                    .and_then(|mut new_ir| {
+                                                        ir.append(&mut new_ir);
+                                                        Ok(ir)
+                                                    })
+                                         })
+                                     })
+                                     .and_then(|mut ir| {
+                                         ir.push(format!("ret %object %{}", backend.local_counter));
+                                         ir.push("}".to_string());
+                                         Ok(ir)
+                                     });
+    backend.end_stack();
+    ir_result
 }
 
 /// compile takes an abstract tree and compiles it - eventually

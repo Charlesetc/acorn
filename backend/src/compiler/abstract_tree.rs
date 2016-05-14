@@ -10,7 +10,7 @@ pub static BLOCK_IDENTIFIER: &'static str = "block";
 mod utils {
     pub fn generate_function_arguments(i: usize) -> String {
         let mut output = "(".to_string();
-        for x in 0..(i-1) {
+        for x in 0..(i - 1) {
             output.push_str(&format!("%object arg{}, ", x));
         }
         output.push_str(")");
@@ -33,10 +33,22 @@ pub enum TokenType {
           * Float, */
 }
 
+/// A struct holding information
+/// about a variable that has been
+/// assigned to. It has a name for the
+/// variable and a location
+#[derive(Debug)]
+struct Assignee {
+    name: String,
+    position: Position,
+}
+
 pub struct LLVMBackend {
     pub abstract_tree: Option<AbstractTree>,
     pub transformations: HashMap<String, fn(&mut LLVMBackend, &mut AbstractTree) -> Result<IR>>,
+    pub local_counter: i64,
     global_ir: Option<IR>,
+    locals: Vec<Vec<Assignee>>,
 }
 
 impl LLVMBackend {
@@ -49,8 +61,28 @@ impl LLVMBackend {
                 "%object = type { i64, i64 }".to_string(),
                 "declare %object @print_number() #0".to_string(),
             ]),
+            local_counter: 0,
+            locals: vec![],
         }
     }
+
+    pub fn start_stack(&mut self) {
+        self.local_counter = 0;
+        self.locals.push(vec![]);
+    }
+
+    pub fn end_stack(&mut self) {
+        self.local_counter = 0;
+        self.locals.pop().unwrap();
+    }
+
+
+    pub fn inc_counter(&mut self) -> i64 {
+        self.local_counter += 1;
+        let a = self.local_counter;
+        a
+    }
+
 
     pub fn handle(mut self,
                   key: String,
@@ -77,7 +109,8 @@ impl LLVMBackend {
                 panic!("there should not be a node at the top level OR only call compile on the \
                         top level.")
             }
-        }.map(|mut ir| {
+        }
+        .map(|mut ir| {
             let mut global_ir = self.global_ir.take().unwrap();
             global_ir.append(&mut ir);
             global_ir
@@ -105,7 +138,9 @@ impl LLVMBackend {
                             let mut ir = iterator.fold(Ok(vec![]), |acc, argument| {
                                 acc.and_then(|mut vector| {
                                     self.compile_inner(argument).and_then(|mut argument_ir| {
-                                        argument_ir.push(format!("%object %arg{} = %ret", i));
+                                        argument_ir.push(format!("%object %arg{} = %{}",
+                                                                 i,
+                                                                 self.local_counter));
                                         i += 1;
                                         vector.append(&mut argument_ir);
                                         Ok(vector)
@@ -116,7 +151,8 @@ impl LLVMBackend {
                             let argument_names = self::utils::generate_function_arguments(length);
                             ir.iter_mut()
                               .map(|inner| {
-                                  inner.push(format!("%ret = call %object @{}{}",
+                                  inner.push(format!("%{} = call %object @{}{}",
+                                                     self.inc_counter(),
                                                      fuction_name,
                                                      argument_names))
                               })
@@ -143,10 +179,10 @@ impl LLVMBackend {
             &mut Token(TokenType::Symbol, ref name, _) => {
                 // right now, a single symbol is a function call
                 // with no argumnts. This will change with contexts.
-                Ok(vec![format!("%ret = call %object @{}()", name)])
+                Ok(vec![format!("%{} = call %object @{}()", self.inc_counter(), name)])
             }
             &mut Token(TokenType::Int, ref integer_literal, _) => {
-                Ok(vec![format!("%ret =l {}", integer_literal)])
+                Ok(vec![format!("%{} =l {}", self.inc_counter(), integer_literal)])
             }
             _ => tree.err("compile_token not called on a token.".to_string()),
         }
