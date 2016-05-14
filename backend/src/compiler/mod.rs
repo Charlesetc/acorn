@@ -1,8 +1,10 @@
 // compiler/mod.rs
 
 pub mod abstract_tree;
+pub mod backend;
 
-use self::abstract_tree::{AbstractTree, LLVMBackend};
+use self::abstract_tree::AbstractTree;
+use self::backend::LLVMBackend;
 use utils::{Result, IR};
 
 /// check_define ensures the tree passed to it is valid
