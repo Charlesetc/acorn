@@ -16,6 +16,8 @@ fn check_define<'a>(at: &'a mut AbstractTree) -> Result<()> {
         .and_then(|_| at.check_argument_block(2))
 }
 
+
+// Maybe this should be put in the backend - or it's own module.
 fn compile_define(backend: &mut LLVMBackend, tree: &mut AbstractTree) -> Result<IR> {
     backend.start_stack();
 
@@ -28,23 +30,39 @@ fn compile_define(backend: &mut LLVMBackend, tree: &mut AbstractTree) -> Result<
     let name = top_level_iterator.next().unwrap().name();
 
     let mut arguments_to_block = block.arguments_mut();
+
     let mut block_expressions = arguments_to_block.pop().unwrap();
+    let mut arguments_to_block = arguments_to_block.iter_mut();
 
     // get rid of 'block', the first argument to block.
-    let mut arguments_to_block = arguments_to_block.iter_mut();
     arguments_to_block.next();
 
     let mut function_definition = format!("define %object @{}(", name);
-    for argument in arguments_to_block {
-        function_definition.push_str(&format!("%object {},", argument.name()));
-    }
-    function_definition.push_str(") {");
+    let mut beginning = true;
 
-    let ir = vec![function_definition];
+    let mut argument_ir = vec![];
+    let mut i = 0;
+    for argument in arguments_to_block {
+        if !beginning {
+            function_definition.push(',')
+        }
+
+        function_definition.push_str(&format!("%object %in_arg.{}", i));
+        argument_ir.append(&mut backend.set_var_ir(argument.name(), format!("in_arg.{}", i)));
+        backend.add_assignee(argument.name());
+
+        // comma formatting (facepalm)
+        beginning = false;
+
+        i += 1;
+    }
+
+    function_definition.push_str(") {");
+    let mut ir = vec![function_definition];
 
     let ir_result = block_expressions.arguments_mut()
                                      .iter_mut()
-                                     .fold(Ok(ir), |acc, expression| {
+                                     .fold(Ok(vec![]), |acc, expression| {
                                          acc.and_then(|mut ir| {
                                              backend.compile_inner(expression)
                                                     .and_then(|mut new_ir| {
@@ -54,12 +72,22 @@ fn compile_define(backend: &mut LLVMBackend, tree: &mut AbstractTree) -> Result<
                                          })
                                      })
                                      .and_then(|mut ir| {
-                                         ir.push(format!("ret %object %{}", backend.local_counter));
+                                         ir.push(format!("ret %object %{}",
+                                                         backend.get_counter("ret")));
                                          ir.push("}".to_string());
                                          Ok(ir)
                                      });
-    backend.end_stack();
-    ir_result
+
+    let stack = backend.end_stack();
+    let mut ir_from_stack = stack.values()
+        .map(|assignee| format!("%{} = alloca %object", assignee.name))
+        .collect::<Vec<_>>();
+    ir_result.and_then(|mut r| {
+        ir.append(&mut ir_from_stack);
+        ir.append(&mut argument_ir);
+        ir.append(&mut r);
+        Ok(ir)
+    })
 }
 
 /// compile takes an abstract tree and compiles it - eventually
@@ -145,6 +173,7 @@ mod tests {
             Node(vec![Token(Int, "2".to_string(), Position(0,0))], Position(0,0)),
         ]);
         compile(at).ok().unwrap();
+
     }
 
 }
