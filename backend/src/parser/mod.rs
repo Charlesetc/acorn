@@ -491,10 +491,42 @@ mod tests {
                             Position(0, 0)))
     }
 
-    // TODO: Add this test for the future.
-    // #[test]
-    // fn test_parses_blocks_on_lines() {
-    //     assert_parses!("map { something } two\n foo bar",)
-    // }
+    #[test]
+    fn test_parses_block_with_next_statement() {
+        assert_parses!("{ one two } three",
+                       Node(vec![
+                            Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
+                                           Node(vec![Token(Symbol,
+                                                           "one".to_string(),
+                                                           Position(0, 2)),
+                                                     Token(Symbol,
+                                                           "two".to_string(),
+                                                           Position(0, 6))],
+                                                Position(0, 1))],
+                                      Position(0, 0)),
+                             Token(Symbol, "three".to_string(), Position(0, 12)),
+                       ], Position(0, 0)))
+    }
+
+    #[test]
+    fn test_parses_two_blocks() {
+        assert_parses!("{ print }\n{ print }",
+                       Node(vec![
+                            Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
+                               Node(vec![Token(Symbol,
+                                               "print".to_string(),
+                                           Position(0, 2))],
+                                Position(0, 1))],
+                            Position(0, 0))],
+                          Position(0, 0)),
+                       Node(vec![
+                            Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
+                               Node(vec![Token(Symbol,
+                                               "print".to_string(),
+                                           Position(1, 2))],
+                                      Position(1, 1))],
+                            Position(1, 0)),
+                       ], Position(1, 0)))
+    }
 
 }
