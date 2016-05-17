@@ -17,6 +17,7 @@ struct Parser<'a> {
     stream: Peekable<Chars<'a>>,
     position: Position,
     last_char: Option<char>, // this is helpful for parsing blocks
+    return_char: Option<String> // maybe make this neater.
 }
 
 impl<'a> Parser<'a> {
@@ -26,6 +27,7 @@ impl<'a> Parser<'a> {
             stream: string.chars().peekable(),
             position: Position(0, 0),
             last_char: None,
+            return_char: None,
         }
     }
 
@@ -149,6 +151,7 @@ macro_rules! define_expression_parser {
         $a: ident
         name: $name: expr,
         close: $close: expr,
+        allow: $allow: expr,
         advance: $should_advance: expr,
         top_level: $top_level: expr,
         ignore_newlines: $should_ignore_newlines: expr,
@@ -171,6 +174,9 @@ macro_rules! define_expression_parser {
                 match expression {
                     Ok(Some(AbstractTree::Token(TokenType::Flag, s, p))) => {
                         if $close.contains(&s) {
+                            break;
+                        } else if $allow.contains(&s) {
+                            parser.return_char = Some(s);
                             break;
                         } else {
                             // this way I can ensure ( } doesnt happen
@@ -207,7 +213,8 @@ macro_rules! define_expression_parser {
 macro_rules! define_aggregate_parser {
 
     ( $name: ident
-      parser: $inner_parser: expr, ) => {
+      parser: $inner_parser: expr,
+      final_char: $final_char: expr, ) => {
 
         fn $name(parser: &mut Parser) -> Result<Option<AbstractTree>> {
             let starting_position = parser.position.clone();
@@ -220,7 +227,10 @@ macro_rules! define_aggregate_parser {
                                the inner parser of an aggregate parser");
                     }
                     Some(a) => {
-                        accumulator.push(a)
+                        accumulator.push(a);
+                        if parser.return_char.take() == Some($final_char.to_string()) {
+                            break;
+                        }
                     }
                     None => {
                         if parser.at_eof() {
@@ -238,6 +248,7 @@ macro_rules! define_aggregate_parser {
 define_expression_parser! { open_paren
     name: "an open paren",
     close: ")",
+    allow: "",
     advance: true,
     top_level: false,
     ignore_newlines: true,
@@ -248,6 +259,18 @@ define_expression_parser! { open_paren
 define_expression_parser! { parse_whole_expression
     name: "top level expressions",
     close: "\n",
+    allow: "",
+    advance: false,
+    top_level: true,
+    ignore_newlines: false,
+}
+
+// this is used for the first expression within a block - it parses differently
+// depending on whether or not it terminates with a '}' or a '\n'
+define_expression_parser! { parse_whole_expression_block_start
+    name: "expressions of a block",
+    close: "}\n", // either one of these will work
+    allow: "",
     advance: false,
     top_level: true,
     ignore_newlines: false,
@@ -257,7 +280,8 @@ define_expression_parser! { parse_whole_expression
 // depending on whether or not it terminates with a '}' or a '\n'
 define_expression_parser! { parse_whole_expression_block
     name: "expressions of a block",
-    close: "}\n", // either one of these will work
+    close: "\n", // either one of these will work
+    allow: "}",
     advance: false,
     top_level: true,
     ignore_newlines: false,
@@ -265,17 +289,19 @@ define_expression_parser! { parse_whole_expression_block
 
 define_aggregate_parser! { complete_parse
     parser: parse_whole_expression,
+    final_char: "}",
 }
 
 define_aggregate_parser! { complete_parse_block
     parser: parse_whole_expression_block,
+    final_char: "}",
 }
 
 
 fn open_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
     let starting_position = parser.position.clone();
     parser.advance_char();
-    let mut expression = try!(parse_whole_expression_block(parser));
+    let mut expression = try!(parse_whole_expression_block_start(parser));
     loop {
         match expression {
             Some(AbstractTree::Token(_, _, _)) => {
@@ -297,7 +323,7 @@ fn open_curly(parser: &mut Parser) -> Result<Option<AbstractTree>> {
                     expression = Some(AbstractTree::Node(vec![], Position(0, 0)));
                     break;
                 } else {
-                    expression = try!(parse_whole_expression_block(parser));
+                    expression = try!(parse_whole_expression_block_start(parser));
                 }
             }
         }
@@ -510,23 +536,25 @@ mod tests {
 
     #[test]
     fn test_parses_two_blocks() {
-        assert_parses!("{ print }\n{ print }",
+        assert_parses!("{\nprint }\n{ print }",
                        Node(vec![
                             Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
-                               Node(vec![Token(Symbol,
-                                               "print".to_string(),
-                                           Position(0, 2))],
-                                Position(0, 1))],
+                               Node(vec![
+                                   Node(vec![Token(Symbol,
+                                                   "print".to_string(),
+                                               Position(1, 0))],
+                                    Position(1, 0))],
+                                Position(1, 0))],
                             Position(0, 0))],
                           Position(0, 0)),
                        Node(vec![
                             Node(vec![Token(Symbol, "block".to_string(), Position(0, 0)),
                                Node(vec![Token(Symbol,
                                                "print".to_string(),
-                                           Position(1, 2))],
-                                      Position(1, 1))],
-                            Position(1, 0)),
-                       ], Position(1, 0)))
+                                           Position(2, 2))],
+                                      Position(2, 1))],
+                            Position(2, 0)),
+                       ], Position(2, 0)))
     }
 
 }
